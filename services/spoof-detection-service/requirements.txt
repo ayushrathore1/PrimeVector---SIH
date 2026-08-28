@@ -1,0 +1,7 @@
+fastapi
+pydantic
+pydantic-settings
+uvicorn
+pytest
+hypothesis
+numpy

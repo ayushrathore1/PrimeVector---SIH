@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package voiceintegrity.v1;
+
+option go_package = "voiceintegrity/v1;voiceintegrityv1";
+
+import "google/protobuf/timestamp.proto";
+import "risk_assessment.proto";
+
+// AudioChunkRequest represents a single audio frame/chunk streamed from
+// the client (telecom switch, banking app, or API gateway).
+message AudioChunkRequest {
+  // Unique call session identifier
+  string call_session_id = 1;
+
+  // Tenant / organization identifier for rate limiting and billing
+  string tenant_id = 2;
+
+  // Raw audio payload bytes (e.g. PCM 16-bit linear, Opus, or WAV)
+  bytes audio_bytes = 3;
+
+  // Audio sample rate in Hz (default: 16000)
+  int32 sample_rate_hz = 4;
+
+  // Audio channel count (default: 1 for mono)
+  int32 channels = 5;
+
+  // Monotonically increasing sequence number for this stream
+  int64 sequence_number = 6;
+
+  // Client-side capture timestamp
+  google.protobuf.Timestamp timestamp = 7;
+
+  // Flag indicating the end of the client's audio stream
+  bool is_last_chunk = 8;
+
+  // Known enrollment status of the claimed identity
+  EnrollmentStatus enrollment_status = 9;
+
+  // Optional contextual signal provided by client (e.g. device/geo risk)
+  RiskSignal contextual_signal = 10;
+}
+
+message PingRequest {
+  string message = 1;
+}
+
+message PingResponse {
+  string message = 1;
+  string region = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+// IngestionGateway handles high-throughput, low-latency audio streaming
+// directly from client infrastructure into the Voice Integrity platform.
+service IngestionGateway {
+  // Bidirectional streaming RPC: client continuously streams AudioChunkRequest,
+  // service continuously streams dynamic RiskAssessmentResponse updates.
+  rpc StreamAudio(stream AudioChunkRequest) returns (stream RiskAssessmentResponse);
+
+  // Health / ping RPC
+  rpc Ping(PingRequest) returns (PingResponse);
+}

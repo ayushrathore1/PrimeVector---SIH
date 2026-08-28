@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package voiceintegrity.v1;
+
+option go_package = "voiceintegrity/v1;voiceintegrityv1";
+
+import "google/protobuf/timestamp.proto";
+
+// One independent evidence signal feeding the fusion engine.
+// Each signal is self-describing so the fusion engine (and any human
+// auditor) can see not just a number but where it came from and how
+// much to trust it.
+message RiskSignal {
+  double score = 1;          // 0.0-1.0, higher = more suspicious
+  double confidence = 2;      // 0.0-1.0, model's confidence in `score` itself
+  bool available = 3;         // false if this signal could not be computed
+                               // (e.g. no enrollment for speaker_match)
+  string detail = 4;          // short human-readable reason, for audit/UI
+}
+
+enum EnrollmentStatus {
+  ENROLLMENT_STATUS_UNSPECIFIED = 0;
+  NOT_ENROLLED = 1;
+  ENROLLED = 2;
+  ENROLLMENT_REVOKED = 3;
+}
+
+message RiskAssessmentRequest {
+  string call_session_id = 1;
+  string tenant_id = 2;
+  RiskSignal synthesis_signal = 3;
+  RiskSignal speaker_match_signal = 4;
+  RiskSignal contextual_signal = 5;
+  EnrollmentStatus enrollment_status = 6;
+}
+
+enum RecommendedAction {
+  ACTION_UNSPECIFIED = 0;
+  PROCEED = 1;
+  RECOMMEND_CALLBACK_VERIFICATION = 2;
+  RECOMMEND_MFA_STEP_UP = 3;
+  RECOMMEND_SUPERVISOR_ESCALATION = 4;
+  BLOCK_PENDING_VERIFICATION = 5;   // only ever set if tenant has opted
+                                     // into auto-block policy (see DESIGN.md 4.7)
+}
+
+message RiskAssessmentResponse {
+  string call_session_id = 1;
+  double risk_score = 2;            // fused, 0.0-1.0
+  double confidence = 3;            // fused confidence, distinct from risk
+  repeated RecommendedAction actions = 4;
+  string explanation = 5;           // human-readable, built from contributing signals
+  google.protobuf.Timestamp evaluated_at = 6;
+  bool degraded = 7;                // true if computed under fail-safe/partial-signal mode
+}
+
+service RiskFusionEngine {
+  // Stateless: same inputs always produce the same output. This is a
+  // hard requirement, not an implementation detail — see DESIGN.md 4.8
+  // on auditability.
+  rpc Assess(RiskAssessmentRequest) returns (RiskAssessmentResponse);
+}
