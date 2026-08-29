@@ -6,6 +6,7 @@ extended by an AI coding tool. The logic it wraps (fusion.py) is not —
 see docs/DESIGN.md section 6.
 """
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
@@ -28,6 +29,7 @@ class RiskAssessmentRequest(BaseModel):
     synthesis_signal: SignalIn
     speaker_match_signal: SignalIn
     contextual_signal: SignalIn
+    content_risk_signal: Optional[SignalIn] = None
 
 
 class RiskAssessmentResponse(BaseModel):
@@ -42,10 +44,16 @@ class RiskAssessmentResponse(BaseModel):
 
 @app.post("/v1/assess", response_model=RiskAssessmentResponse)
 def assess(req: RiskAssessmentRequest) -> RiskAssessmentResponse:
+    # Build content_risk Signal only when the caller sends it.
+    content_risk = None
+    if req.content_risk_signal is not None:
+        content_risk = Signal(**req.content_risk_signal.model_dump())
+
     result = fuse(
         synthesis=Signal(**req.synthesis_signal.model_dump()),
         speaker_match=Signal(**req.speaker_match_signal.model_dump()),
         contextual=Signal(**req.contextual_signal.model_dump()),
+        content_risk=content_risk,
     )
     return RiskAssessmentResponse(
         call_session_id=req.call_session_id,

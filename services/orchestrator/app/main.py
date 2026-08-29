@@ -37,6 +37,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from client import PipelineClient
+from content_risk import assess_content_risk
 from models import (
     EventAcceptedResponse,
     PipelineRequest,
@@ -77,7 +78,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="orchestrator",
-    version="0.1.0",
+    version="0.2.0",
     description=(
         "End-to-end pipeline orchestrator for the Voice Integrity & "
         "Impersonation Prevention Platform.  Receives audio payloads, "
@@ -129,7 +130,7 @@ async def process_pipeline(req: PipelineRequest) -> PipelineResponse:
 
     response.extraction = extraction
 
-    # ---- Step 2: Parallel — spoof detection + enrollment check ----
+    # ---- Step 2: Parallel — spoof detection + enrollment check + content risk ----
     # Flatten log_mel frames to a 1-D feature vector for the spoof
     # detector (it expects a flat float list, not a 2-D frame array).
     flat_features = [
@@ -146,9 +147,23 @@ async def process_pipeline(req: PipelineRequest) -> PipelineResponse:
         subject_id=req.subject_id,
     )
 
-    spoof_result, enrollment_result = await asyncio.gather(
-        spoof_task, enrollment_task,
-    )
+    # Content-risk: only attempt when a transcript is provided.
+    content_risk_task = None
+    if req.transcript.strip():
+        content_risk_task = assess_content_risk(
+            transcript=req.transcript,
+        )
+
+    # Gather all parallel tasks
+    if content_risk_task is not None:
+        spoof_result, enrollment_result, content_risk_result = await asyncio.gather(
+            spoof_task, enrollment_task, content_risk_task,
+        )
+    else:
+        spoof_result, enrollment_result = await asyncio.gather(
+            spoof_task, enrollment_task,
+        )
+        content_risk_result = None
 
     # -- Build synthesis signal --
     if spoof_result is not None:
@@ -169,11 +184,6 @@ async def process_pipeline(req: PipelineRequest) -> PipelineResponse:
 
     # -- Build speaker-match signal --
     if enrollment_result is not None and enrollment_result.status == "ENROLLED":
-        # Compute a placeholder cosine-similarity-based mismatch score.
-        # In a real deployment the enrollment service or a dedicated
-        # comparator would compute this.  Here the orchestrator simply
-        # signals that the subject IS enrolled and lets fusion handle
-        # the score it gets from the enrollment embedding comparison.
         speaker_match_signal = SignalIn(
             score=0.0,
             confidence=1.0,
@@ -193,6 +203,17 @@ async def process_pipeline(req: PipelineRequest) -> PipelineResponse:
 
     response.speaker_match_signal = speaker_match_signal
 
+    # -- Build content-risk signal --
+    content_risk_signal: SignalIn | None = None
+    if content_risk_result is not None:
+        content_risk_signal = SignalIn(
+            score=content_risk_result.score,
+            confidence=content_risk_result.confidence,
+            available=content_risk_result.available,
+            detail=content_risk_result.detail,
+        )
+        response.content_risk_signal = content_risk_signal
+
     # -- Build contextual signal --
     contextual_signal = SignalIn(
         score=req.context_score,
@@ -208,6 +229,7 @@ async def process_pipeline(req: PipelineRequest) -> PipelineResponse:
         synthesis_signal=synthesis_signal,
         speaker_match_signal=speaker_match_signal,
         contextual_signal=contextual_signal,
+        content_risk_signal=content_risk_signal,
     )
 
     if risk_assessment is None:

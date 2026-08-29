@@ -47,12 +47,13 @@ def extract_log_mel(audio_array: np.ndarray, sample_rate: int, n_mels: int = 80,
         stft = np.fft.rfft(frames * window, axis=1)
         power_spec = np.abs(stft)**2
         
-        # Dummy mel filterbank (n_fft//2 + 1, n_mels)
-        mel_basis = np.random.rand(power_spec.shape[1], n_mels).astype(np.float32)
+        # Real triangular Mel filterbank using librosa
+        import librosa
+        mel_basis = librosa.filters.mel(sr=sample_rate, n_fft=n_fft, n_mels=n_mels).T
         mel_spec = np.dot(power_spec, mel_basis)
         
         # Log transform
-        log_mel = np.log(mel_spec + 1e-9)
+        log_mel = np.log(np.maximum(mel_spec, 1e-9))
         return log_mel
 
 def extract_embedding(audio_array: np.ndarray, model) -> np.ndarray:

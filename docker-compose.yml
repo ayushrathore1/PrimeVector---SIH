@@ -1,0 +1,196 @@
+# Voice Integrity Platform — Docker Compose
+# Usage:
+#   Full stack:       docker compose up --build
+#   Single service:   docker compose up --build feature-extraction-service
+#   Restart one:      docker compose restart orchestrator
+#   Stop everything:  docker compose down
+
+services:
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Tier 0: No dependencies (can start independently)
+  # ─────────────────────────────────────────────────────────────────────
+
+  risk-fusion-engine:
+    build: ./services/risk-fusion-engine
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./services/risk-fusion-engine/app:/app/app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - voice-integrity
+
+  feature-extraction-service:
+    build: ./services/feature-extraction-service
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./services/feature-extraction-service/app:/app/app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/healthz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - voice-integrity
+
+  spoof-detection-service:
+    build: ./services/spoof-detection-service
+    ports:
+      - "8002:8002"
+    environment:
+      - MODEL_REGISTRY_BACKEND=heuristic
+    volumes:
+      - ./services/spoof-detection-service/app:/app/app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/healthz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - voice-integrity
+
+  enrollment-service:
+    build: ./services/enrollment-service
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./services/enrollment-service/app:/app/app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003", "--reload"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/healthz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - voice-integrity
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Tier 1: Depends on risk-fusion-engine
+  # ─────────────────────────────────────────────────────────────────────
+
+  policy-threshold-engine:
+    build: ./services/policy-threshold-engine
+    ports:
+      - "8004:8004"
+    volumes:
+      - ./services/policy-threshold-engine/app:/app/app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8004", "--reload"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8004/healthz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      risk-fusion-engine:
+        condition: service_healthy
+    networks:
+      - voice-integrity
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Tier 2: Depends on policy-threshold-engine
+  # ─────────────────────────────────────────────────────────────────────
+
+  alerting-service:
+    build: ./services/alerting-service
+    ports:
+      - "8005:8005"
+    volumes:
+      - ./services/alerting-service/app:/app/app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8005", "--reload"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8005/healthz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      policy-threshold-engine:
+        condition: service_healthy
+    networks:
+      - voice-integrity
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Tier 3: Orchestrator — depends on ALL Python services
+  # ─────────────────────────────────────────────────────────────────────
+
+  orchestrator:
+    build: ./services/orchestrator
+    ports:
+      - "8080:8080"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - FEATURE_EXTRACTION_URL=http://feature-extraction-service:8001
+      - SPOOF_DETECTION_URL=http://spoof-detection-service:8002
+      - ENROLLMENT_URL=http://enrollment-service:8003
+      - RISK_FUSION_URL=http://risk-fusion-engine:8000
+      - POLICY_ENGINE_URL=http://policy-threshold-engine:8004
+      - ALERTING_URL=http://alerting-service:8005
+    volumes:
+      - ./services/orchestrator/app:/app/app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      feature-extraction-service:
+        condition: service_healthy
+      spoof-detection-service:
+        condition: service_healthy
+      enrollment-service:
+        condition: service_healthy
+      risk-fusion-engine:
+        condition: service_healthy
+      policy-threshold-engine:
+        condition: service_healthy
+      alerting-service:
+        condition: service_healthy
+    networks:
+      - voice-integrity
+
+  # ─────────────────────────────────────────────────────────────────────
+  # Standalone: Ingestion Gateway (gRPC) — no other service depends on it
+  # ─────────────────────────────────────────────────────────────────────
+
+  ingestion-gateway:
+    build: ./services/ingestion-gateway
+    ports:
+      - "50051:50051"
+    environment:
+      - DOWNSTREAM_URL=http://feature-extraction-service:8001
+      - SPOOF_DETECTION_URL=http://spoof-detection-service:8002
+      - ENROLLMENT_URL=http://enrollment-service:8003
+      - RISK_FUSION_URL=http://risk-fusion-engine:8000
+      - DOWNSTREAM_TIMEOUT=5s
+    healthcheck:
+      # gRPC-only server — no HTTP /healthz endpoint.
+      # Check process is alive; TCP readiness is best-effort for this service.
+      test: ["CMD-SHELL", "test -f /proc/1/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    # No depends_on — runs best-effort standalone per user directive.
+    # Not required for demo (Android app talks to orchestrator, not gRPC).
+    networks:
+      - voice-integrity
+
+networks:
+  voice-integrity:
+    driver: bridge

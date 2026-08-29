@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from fastapi import Header, HTTPException, Request
 
 from enrollment import EnrollmentService
-from interfaces import StubLivenessChecker, StubModelRegistry
+from interfaces import RealModelRegistry, StubLivenessChecker, StubModelRegistry
 from store import InMemoryVoiceprintStore
 
 
@@ -21,7 +21,7 @@ from store import InMemoryVoiceprintStore
 
 _store = InMemoryVoiceprintStore()
 _liveness_checker = StubLivenessChecker()
-_model_registry = StubModelRegistry()
+_model_registry = RealModelRegistry()
 _enrollment_service = EnrollmentService(
     store=_store,
     liveness_checker=_liveness_checker,

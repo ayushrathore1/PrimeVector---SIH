@@ -107,16 +107,48 @@ class SpeakerEmbeddingModel(Protocol):
 
 class StubSpeakerEmbeddingModel:
     """
-    Stub that returns a deterministic fake embedding. The real model
-    is served via ModelRegistry (DESIGN.md §4.3).
+    Stub that returns a deterministic fake embedding. Only for tests.
+    Production code uses ResemblyzerSpeakerEmbeddingModel.
     """
 
     def extract_embedding(self, audio_bytes: bytes) -> list[float]:
-        # Deterministic 128-dim embedding derived from audio length,
+        # Deterministic 192-dim embedding derived from audio length,
         # so tests can verify the embedding was produced from input.
-        dim = 128
+        dim = 192
         seed = len(audio_bytes) % 256
         return [float((seed + i) % 256) / 255.0 for i in range(dim)]
+
+
+class ResemblyzerSpeakerEmbeddingModel:
+    """
+    Real speaker-embedding model using Resemblyzer (loaded ONCE).
+
+    Produces real 256-dim speaker-verification embeddings from the
+    pretrained GE2E model, sliced to 192 dims to match the
+    feature-extraction-service contract.
+
+    Raw audio is decoded from PCM bytes in-memory, used for embedding
+    extraction, and immediately discarded — NEVER persisted
+    (DESIGN.md §7).
+    """
+
+    def __init__(self):
+        import numpy as np
+        from resemblyzer import VoiceEncoder
+        self._encoder = VoiceEncoder()
+        self._np = np
+
+    def extract_embedding(self, audio_bytes: bytes) -> list[float]:
+        # Decode 16-bit PCM to float32 [-1.0, 1.0]
+        audio_array = self._np.frombuffer(audio_bytes, dtype=self._np.int16)
+        audio_float = audio_array.astype(self._np.float32) / 32768.0
+        # Resemblyzer produces a real 256-dim GE2E embedding
+        embedding = self._encoder.embed_utterance(audio_float)
+        # Slice to 192 dims to match feature-extraction-service contract
+        result = embedding[:192].astype(self._np.float32).tolist()
+        # DESIGN.md §7: discard audio immediately
+        del audio_array, audio_float
+        return result
 
 
 # ---------------------------------------------------------------------------
@@ -138,12 +170,30 @@ class ModelRegistry(ABC):
 
 
 class StubModelRegistry(ModelRegistry):
-    """Stub registry that always returns StubSpeakerEmbeddingModel."""
+    """Stub registry that always returns StubSpeakerEmbeddingModel. For tests only."""
 
     def get_speaker_embedding_model(
         self, version: str | None = None,
     ) -> SpeakerEmbeddingModel:
         return StubSpeakerEmbeddingModel()
+
+
+class RealModelRegistry(ModelRegistry):
+    """
+    Production registry that returns a real Resemblyzer speaker-embedding
+    model, loaded ONCE at startup. Uses the same pretrained GE2E model as
+    feature-extraction-service so enrolled voiceprints and live embeddings
+    occupy the same vector space (critical for cosine comparison).
+    """
+
+    def __init__(self):
+        # Load once; Resemblyzer model download happens here.
+        self._model = ResemblyzerSpeakerEmbeddingModel()
+
+    def get_speaker_embedding_model(
+        self, version: str | None = None,
+    ) -> SpeakerEmbeddingModel:
+        return self._model
 
 
 # ---------------------------------------------------------------------------

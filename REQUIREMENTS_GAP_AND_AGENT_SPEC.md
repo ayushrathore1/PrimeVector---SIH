@@ -34,7 +34,7 @@ graph TD
 
         R5 -->|gRPC Ingestion & REST APIs| M11["✅ ingestion-gateway & microservices"]
         R5 -->|Python & Node SDKs| M12["✅ sdk/python & sdk/node"]
-        R5 -->|Multilingual Indian Accents| M13["✅ language_id.py (hi-in, ta-in, etc.)"]
+        R5 -->|Multilingual Indian Accents| M13["🟡 Routing scaffolding only — no trained classifier, blocked on labeled Indian-accent dataset"]
         R5 -->|E2E Pipeline Orchestrator| M14["🟡 Partial (Standalone APIs built; E2E glue pending)"]
     end
 ```
@@ -53,7 +53,7 @@ graph TD
 | **Multi-Channel Alert Dispatch** | Idempotent dispatch via UI push, SMS/email, anonymized SHA-256 audit logs. | `services/alerting-service/app/engine.py` | ✅ Fully Implemented | Connecting live WebSockets to frontend |
 | **User Interaction & Warning Prompts** | Pre-transaction warnings, call-back recommendations, supervisor escalation prompts. | `services/risk-fusion-engine`<br>`services/policy-threshold-engine` | ✅ Fully Implemented | Interactive Web Demo UI Dashboard |
 | **Privacy & Compliance** | Zero audio retention, in-memory feature extraction, anonymized SHA-256 logs. | `services/feature-extraction-service`<br>`services/alerting-service` | ✅ Fully Implemented | Edge inference packaging script |
-| **Multilingual Indian Accent Architecture** | Language/accent identification and routing for Indian regional accents (`hi-in`, `ta-in`, `te-in`, etc.). | `services/spoof-detection-service/app/language_id.py` | ✅ Fully Implemented | None (supported in classifier router) |
+| **Multilingual Indian Accent Architecture** | Language/accent identification and routing for Indian regional accents (`hi-in`, `ta-in`, `te-in`, etc.). | `services/spoof-detection-service/app/language_id.py` | 🟡 Routing scaffolding only | No trained classifier exists; `language-id/default` model is never registered. All requests fall through to `generic` cluster. Blocked on labeled Indian-accent dataset. |
 | **Integration APIs & SDKs** | gRPC streaming ingress, REST endpoints, native Python & Node.js SDKs. | `services/ingestion-gateway`<br>`sdk/python`<br>`sdk/node` | ✅ Fully Implemented | Pipeline Orchestrator Service (`services/orchestrator`) |
 
 ---

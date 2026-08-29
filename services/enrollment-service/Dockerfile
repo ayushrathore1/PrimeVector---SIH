@@ -1,0 +1,23 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# resemblyzer requires libsndfile1; webrtcvad requires gcc to compile C extension
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libsndfile1 build-essential && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+
+# Install CPU-only PyTorch first (resemblyzer depends on torch but we don't need CUDA in Docker)
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r requirements.txt
+
+COPY app/ ./app/
+
+WORKDIR /app/app
+ENV PYTHONPATH=/app/app:/app
+
+EXPOSE 8003
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003"]

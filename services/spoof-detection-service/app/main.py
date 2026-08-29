@@ -38,9 +38,13 @@ def _create_registry() -> ModelRegistry:
     here and set SPOOF_MODEL_REGISTRY_BACKEND accordingly.
     """
     backend = settings.model_registry_backend
-    if backend == "stub":
-        return StubModelRegistry()
+    if backend == "heuristic":
+        return StubModelRegistry(enable_heuristic=True)
+    elif backend == "stub":
+        return StubModelRegistry(enable_heuristic=False)
     else:
+
+
         raise ValueError(
             f"Unknown model_registry_backend='{backend}'. "
             f"Available: 'stub'. A real backend must be implemented "

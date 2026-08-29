@@ -10,8 +10,8 @@ here — DESIGN.md §4.2 designates inbound calls as an untrusted channel.
 """
 
 import base64
-
 from fastapi import Depends, FastAPI, HTTPException, Path
+from pydantic import BaseModel
 
 from dependencies import (
     ActorContext,
@@ -230,6 +230,21 @@ def get_status(
             if voiceprint.revoked_at else None
         ),
     )
+
+
+class MatchSpeakerRequest(BaseModel):
+    live_embedding: list[float]
+
+
+@app.post("/v1/tenants/{tenant_id}/subjects/{subject_id}/match")
+def match_speaker_route(
+    tenant_id: str,
+    subject_id: str,
+    req: MatchSpeakerRequest,
+    svc: EnrollmentService = Depends(get_enrollment_service),
+):
+    """Compare a live embedding vector against enrolled voiceprint vectors."""
+    return svc.match_speaker(tenant_id, subject_id, req.live_embedding)
 
 
 @app.get(

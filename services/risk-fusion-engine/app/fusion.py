@@ -132,7 +132,8 @@ def _actions_for(risk_score: float, enrollment_missing: bool) -> list:
 
 
 def _explain(synthesis: Signal, speaker_match: Signal, contextual: Signal,
-             risk_score: float, degraded: bool) -> str:
+             risk_score: float, degraded: bool,
+             content_risk: Optional[Signal] = None) -> str:
     parts = []
     if synthesis.available and synthesis.score >= 0.5:
         parts.append(f"synthesis artifacts detected (score={synthesis.score:.2f})")
@@ -148,6 +149,11 @@ def _explain(synthesis: Signal, speaker_match: Signal, contextual: Signal,
     else:
         parts.append("no enrolled voiceprint on file to compare against")
 
+    if content_risk is not None and content_risk.available and content_risk.score >= 0.5:
+        parts.append(f"conversation content flagged as risky ({content_risk.detail or f'score={content_risk.score:.2f}'})")
+    elif content_risk is not None and content_risk.available:
+        parts.append(f"conversation content appears benign (score={content_risk.score:.2f})")
+
     if contextual.available and contextual.score >= 0.5:
         parts.append(f"transaction context is elevated risk (score={contextual.score:.2f})")
 
@@ -157,17 +163,33 @@ def _explain(synthesis: Signal, speaker_match: Signal, contextual: Signal,
     return f"{prefix}{level} risk ({risk_score:.2f}): " + "; ".join(parts)
 
 
-def fuse(synthesis: Signal, speaker_match: Signal, contextual: Signal) -> FusionResult:
+def fuse(synthesis: Signal, speaker_match: Signal, contextual: Signal,
+         content_risk: Optional[Signal] = None) -> FusionResult:
     """
-    Deterministic risk fusion. Given the same three signals, always
-    returns the same result -- this is a hard requirement (see module
-    docstring), not an implementation convenience.
+    Deterministic risk fusion. Given the same signals, always returns
+    the same result -- this is a hard requirement (see module docstring),
+    not an implementation convenience.
+
+    content_risk (optional, added 2026-08): independent content-based
+    signal (e.g. transcript analysis for OTP/fund-transfer/scam-script
+    language).  Included in Noisy-OR alongside the acoustic signals
+    because content-risk and voice-authenticity are independent failure
+    modes — a caller can sound perfectly real while running a scam
+    script.  Noisy-OR treats each as independent evidence where any one
+    being bad is sufficient to raise concern.
     """
-    acoustic_risk = _noisy_or([synthesis, speaker_match])
+    # Build the list of independent evidence signals for Noisy-OR.
+    # content_risk is included only when provided AND available, following
+    # the same unavailable-handling pattern as synthesis/speaker_match.
+    evidence_signals = [synthesis, speaker_match]
+    if content_risk is not None:
+        evidence_signals.append(content_risk)
+
+    acoustic_risk = _noisy_or(evidence_signals)
     degraded = acoustic_risk is None
 
     if degraded:
-        # No acoustic evidence available at all (e.g. total feature-extraction
+        # No evidence available at all (e.g. total feature-extraction
         # failure upstream). We do NOT default to a low score here -- that
         # would be "fail open," which docs/DESIGN.md 4.7 explicitly forbids.
         # We surface an explicit unknown/degraded state instead and let the
@@ -179,15 +201,16 @@ def fuse(synthesis: Signal, speaker_match: Signal, contextual: Signal) -> Fusion
         multiplier = _contextual_multiplier(contextual)
         risk_score = min(1.0, acoustic_risk * multiplier)
         # Fused confidence: we are only as confident as our least confident
-        # *available* acoustic signal -- a high risk score built on a
+        # *available* evidence signal -- a high risk score built on a
         # low-confidence detector should not be presented as equally
         # trustworthy as one built on two high-confidence detectors.
-        available_acoustic = [s for s in (synthesis, speaker_match) if s.available]
-        confidence = min(s.confidence for s in available_acoustic)
+        available_evidence = [s for s in evidence_signals if s.available]
+        confidence = min(s.confidence for s in available_evidence)
 
     enrollment_missing = not speaker_match.available
     actions = _actions_for(risk_score, enrollment_missing)
-    explanation = _explain(synthesis, speaker_match, contextual, risk_score, degraded)
+    explanation = _explain(synthesis, speaker_match, contextual, risk_score,
+                           degraded, content_risk=content_risk)
 
     return FusionResult(
         risk_score=risk_score,

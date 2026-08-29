@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # Which ModelRegistry backend to use. Currently only "stub" is
     # implemented — a real backend (e.g., MLflow, custom registry)
     # must be plugged in before this service produces real scores.
-    model_registry_backend: str = "stub"
+    model_registry_backend: str = "heuristic"
 
     # Logging level for structured logs.
     log_level: str = "INFO"

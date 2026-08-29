@@ -32,6 +32,7 @@ message RiskAssessmentRequest {
   RiskSignal speaker_match_signal = 4;
   RiskSignal contextual_signal = 5;
   EnrollmentStatus enrollment_status = 6;
+  RiskSignal content_risk_signal = 7;  // content-based risk from transcript analysis (optional)
 }
 
 enum RecommendedAction {

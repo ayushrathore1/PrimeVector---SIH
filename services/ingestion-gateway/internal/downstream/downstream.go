@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -14,6 +15,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
+
 
 // DownstreamProcessor defines the interface for executing feature extraction & risk evaluation.
 type DownstreamProcessor interface {
@@ -69,10 +71,55 @@ type ExtractionPayload struct {
 	Channels     int32  `json:"channels"`
 }
 
+type LogMelFeatures struct {
+	Frames       [][]float64 `json:"frames"`
+	NMels        int         `json:"n_mels"`
+	HopLengthMs  float64     `json:"hop_length_ms"`
+	SampleRateHz int         `json:"sample_rate_hz"`
+}
+
 type ExtractionResult struct {
-	RequestID        string `json:"request_id"`
-	DurationMs       float64 `json:"duration_ms"`
-	SpeakerEmbedding []float64 `json:"speaker_embedding"`
+	RequestID        string         `json:"request_id"`
+	LogMel           LogMelFeatures `json:"log_mel"`
+	SpeakerEmbedding []float64      `json:"speaker_embedding"`
+	DurationMs       float64        `json:"duration_ms"`
+}
+
+type SpoofDetectionRequestPayload struct {
+	CallSessionID string    `json:"call_session_id"`
+	TenantID      string    `json:"tenant_id"`
+	AudioFeatures []float64 `json:"audio_features"`
+	SampleRate    int32     `json:"sample_rate"`
+	FeatureType   string    `json:"feature_type"`
+}
+
+type SignalPayload struct {
+	Score      float64 `json:"score"`
+	Confidence float64 `json:"confidence"`
+	Available  bool    `json:"available"`
+	Detail     string  `json:"detail"`
+}
+
+type MatchSpeakerRequestPayload struct {
+	LiveEmbedding []float64 `json:"live_embedding"`
+}
+
+type RiskFusionRequestPayload struct {
+	CallSessionID      string        `json:"call_session_id"`
+	TenantID           string        `json:"tenant_id"`
+	SynthesisSignal    SignalPayload `json:"synthesis_signal"`
+	SpeakerMatchSignal SignalPayload `json:"speaker_match_signal"`
+	ContextualSignal   SignalPayload `json:"contextual_signal"`
+}
+
+type RiskFusionResponsePayload struct {
+	CallSessionID string   `json:"call_session_id"`
+	RiskScore     float64  `json:"risk_score"`
+	Confidence    float64  `json:"confidence"`
+	Actions       []string `json:"actions"`
+	Explanation   string   `json:"explanation"`
+	EvaluatedAt   string   `json:"evaluated_at"`
+	Degraded      bool     `json:"degraded"`
 }
 
 func (c *HTTPDownstreamClient) ProcessAudioChunk(ctx context.Context, chunk *pb.AudioChunkRequest) (*pb.RiskAssessmentResponse, error) {
@@ -80,6 +127,13 @@ func (c *HTTPDownstreamClient) ProcessAudioChunk(ctx context.Context, chunk *pb.
 		return nil, fmt.Errorf("downstream circuit breaker open")
 	}
 
+	// Environment endpoints with standard defaults
+	featureExtractionURL := c.baseURL
+	spoofDetectionURL := getEnvOrDefault("SPOOF_DETECTION_URL", "http://spoof-detection-service:8002")
+	enrollmentURL := getEnvOrDefault("ENROLLMENT_URL", "http://enrollment-service:8003")
+	riskFusionURL := getEnvOrDefault("RISK_FUSION_URL", "http://risk-fusion-engine:8000")
+
+	// 1. Call feature-extraction-service (/v1/extract)
 	payload := ExtractionPayload{
 		RequestID:    fmt.Sprintf("%s-%d", chunk.CallSessionId, chunk.SequenceNumber),
 		TenantID:     chunk.TenantId,
@@ -93,9 +147,9 @@ func (c *HTTPDownstreamClient) ProcessAudioChunk(ctx context.Context, chunk *pb.
 		return nil, fmt.Errorf("failed to marshal extraction payload: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/v1/extract", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, featureExtractionURL+"/v1/extract", bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create extraction request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
@@ -111,34 +165,176 @@ func (c *HTTPDownstreamClient) ProcessAudioChunk(ctx context.Context, chunk *pb.
 		return nil, fmt.Errorf("downstream extraction returned HTTP %d", resp.StatusCode)
 	}
 
+	var extractionRes ExtractionResult
+	if err := json.NewDecoder(resp.Body).Decode(&extractionRes); err != nil {
+		c.circuitBreaker.RecordFailure()
+		return nil, fmt.Errorf("failed to decode extraction response: %w", err)
+	}
+
+	// Flatten log mel frames for spoof detection
+	var flattenedMel []float64
+	for _, frame := range extractionRes.LogMel.Frames {
+		flattenedMel = append(flattenedMel, frame...)
+	}
+
+	// 2. Call spoof-detection-service (/v1/detect)
+	spoofReqPayload := SpoofDetectionRequestPayload{
+		CallSessionID: chunk.CallSessionId,
+		TenantID:      chunk.TenantId,
+		AudioFeatures: flattenedMel,
+		SampleRate:    chunk.SampleRateHz,
+		FeatureType:   "mel",
+	}
+	spoofBody, err := json.Marshal(spoofReqPayload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal spoof payload: %w", err)
+	}
+
+	sReq, err := http.NewRequestWithContext(ctx, http.MethodPost, spoofDetectionURL+"/v1/detect", bytes.NewReader(spoofBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create spoof request: %w", err)
+	}
+	sReq.Header.Set("Content-Type", "application/json")
+
+	sResp, err := c.httpClient.Do(sReq)
+	if err != nil {
+		c.circuitBreaker.RecordFailure()
+		return nil, fmt.Errorf("spoof detection request failed: %w", err)
+	}
+	defer sResp.Body.Close()
+
+	var synthesisSignal SignalPayload
+	if sResp.StatusCode >= 200 && sResp.StatusCode < 300 {
+		_ = json.NewDecoder(sResp.Body).Decode(&synthesisSignal)
+	} else {
+		synthesisSignal = SignalPayload{Score: 0.0, Confidence: 0.0, Available: false, Detail: "spoof detection service HTTP error"}
+	}
+
+	// 3. Call enrollment-service (/v1/tenants/{tenant_id}/subjects/{subject_id}/match)
+	subjectID := chunk.CallSessionId // or session subject identifier
+	matchReqPayload := MatchSpeakerRequestPayload{
+		LiveEmbedding: extractionRes.SpeakerEmbedding,
+	}
+	matchBody, err := json.Marshal(matchReqPayload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal match payload: %w", err)
+	}
+
+	mURL := fmt.Sprintf("%s/v1/tenants/%s/subjects/%s/match", enrollmentURL, chunk.TenantId, subjectID)
+	mReq, err := http.NewRequestWithContext(ctx, http.MethodPost, mURL, bytes.NewReader(matchBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create match request: %w", err)
+	}
+	mReq.Header.Set("Content-Type", "application/json")
+
+	mResp, err := c.httpClient.Do(mReq)
+	if err != nil {
+		c.circuitBreaker.RecordFailure()
+		return nil, fmt.Errorf("speaker match request failed: %w", err)
+	}
+	defer mResp.Body.Close()
+
+	var speakerMatchSignal SignalPayload
+	if mResp.StatusCode >= 200 && mResp.StatusCode < 300 {
+		_ = json.NewDecoder(mResp.Body).Decode(&speakerMatchSignal)
+	} else {
+		speakerMatchSignal = SignalPayload{Score: 0.5, Confidence: 0.0, Available: false, Detail: "no enrollment record found"}
+	}
+
+	// 4. Forward chunk.ContextualSignal and chunk.EnrollmentStatus
+	contextualSignal := SignalPayload{
+		Score:      0.0,
+		Confidence: 0.0,
+		Available:  false,
+		Detail:     "no contextual signal provided",
+	}
+	if chunk.ContextualSignal != nil {
+		contextualSignal.Score = float64(chunk.ContextualSignal.Score)
+		contextualSignal.Confidence = float64(chunk.ContextualSignal.Confidence)
+		contextualSignal.Available = chunk.ContextualSignal.Available
+		contextualSignal.Detail = chunk.ContextualSignal.Detail
+	}
+
+	// Forward enrollment_status from proto (previously silently dropped).
+	// Appended to contextual detail so it reaches fusion engine audit trail.
+	if es := chunk.GetEnrollmentStatus(); es != pb.EnrollmentStatus_ENROLLMENT_STATUS_UNSPECIFIED {
+		contextualSignal.Detail = fmt.Sprintf("%s; enrollment_status=%s", contextualSignal.Detail, es.String())
+	}
+
+	// 5. Call risk-fusion-engine (/v1/assess)
+	fusionReqPayload := RiskFusionRequestPayload{
+		CallSessionID:      chunk.CallSessionId,
+		TenantID:           chunk.TenantId,
+		SynthesisSignal:    synthesisSignal,
+		SpeakerMatchSignal: speakerMatchSignal,
+		ContextualSignal:   contextualSignal,
+	}
+	fusionBody, err := json.Marshal(fusionReqPayload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal fusion payload: %w", err)
+	}
+
+	fReq, err := http.NewRequestWithContext(ctx, http.MethodPost, riskFusionURL+"/v1/assess", bytes.NewReader(fusionBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create fusion request: %w", err)
+	}
+	fReq.Header.Set("Content-Type", "application/json")
+
+	fResp, err := c.httpClient.Do(fReq)
+	if err != nil {
+		c.circuitBreaker.RecordFailure()
+		return nil, fmt.Errorf("risk fusion request failed: %w", err)
+	}
+	defer fResp.Body.Close()
+
+	if fResp.StatusCode < 200 || fResp.StatusCode >= 300 {
+		c.circuitBreaker.RecordFailure()
+		return nil, fmt.Errorf("risk fusion returned HTTP %d", fResp.StatusCode)
+	}
+
 	c.circuitBreaker.RecordSuccess()
 
-	// Compute assessment response
-	// If synthesis/contextual signal provided, compute dynamic fused risk
-	riskScore := 0.15
-	confidence := 0.90
-	actions := []pb.RecommendedAction{pb.RecommendedAction_PROCEED}
-	explanation := fmt.Sprintf("Acoustic analysis clean on chunk #%d", chunk.SequenceNumber)
+	var fusionRes RiskFusionResponsePayload
+	if err := json.NewDecoder(fResp.Body).Decode(&fusionRes); err != nil {
+		return nil, fmt.Errorf("failed to decode fusion response: %w", err)
+	}
 
-	if chunk.ContextualSignal != nil && chunk.ContextualSignal.Available && chunk.ContextualSignal.Score > 0.7 {
-		riskScore = 0.75
-		actions = []pb.RecommendedAction{
-			pb.RecommendedAction_RECOMMEND_MFA_STEP_UP,
-			pb.RecommendedAction_RECOMMEND_CALLBACK_VERIFICATION,
+	// Map string actions to proto enum actions
+	var protoActions []pb.RecommendedAction
+	for _, actStr := range fusionRes.Actions {
+		switch actStr {
+		case "PROCEED":
+			protoActions = append(protoActions, pb.RecommendedAction_PROCEED)
+		case "RECOMMEND_CALLBACK_VERIFICATION":
+			protoActions = append(protoActions, pb.RecommendedAction_RECOMMEND_CALLBACK_VERIFICATION)
+		case "RECOMMEND_SUPERVISOR_ESCALATION":
+			protoActions = append(protoActions, pb.RecommendedAction_RECOMMEND_SUPERVISOR_ESCALATION)
+		case "RECOMMEND_MFA_STEP_UP":
+			protoActions = append(protoActions, pb.RecommendedAction_RECOMMEND_MFA_STEP_UP)
+		default:
+			protoActions = append(protoActions, pb.RecommendedAction_PROCEED)
 		}
-		explanation = fmt.Sprintf("Elevated contextual risk detected on chunk #%d: %s", chunk.SequenceNumber, chunk.ContextualSignal.Detail)
 	}
 
 	return &pb.RiskAssessmentResponse{
-		CallSessionId: chunk.CallSessionId,
-		RiskScore:     riskScore,
-		Confidence:    confidence,
-		Actions:       actions,
-		Explanation:   explanation,
+		CallSessionId: fusionRes.CallSessionID,
+		RiskScore:     fusionRes.RiskScore,
+
+		Confidence:    fusionRes.Confidence,
+		Actions:       protoActions,
+		Explanation:   fusionRes.Explanation,
 		EvaluatedAt:   timestamppb.Now(),
-		Degraded:      false,
+		Degraded:      fusionRes.Degraded,
 	}, nil
 }
+
+func getEnvOrDefault(key, fallback string) string {
+	if val := os.Getenv(key); val != "" {
+		return val
+	}
+	return fallback
+}
+
 
 // CircuitBreaker manages fault-tolerance for downstream dependencies.
 type CircuitBreaker struct {

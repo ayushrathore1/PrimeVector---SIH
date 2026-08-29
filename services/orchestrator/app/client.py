@@ -17,6 +17,7 @@ DESIGN INVARIANTS:
 from __future__ import annotations
 
 import logging
+import os
 from typing import List, Optional, Tuple
 
 import httpx
@@ -40,12 +41,12 @@ from models import (
 logger = logging.getLogger(__name__)
 
 # Default service base URLs — overridable via environment or constructor.
-DEFAULT_FEATURE_EXTRACTION_URL = "http://localhost:8001"
-DEFAULT_SPOOF_DETECTION_URL = "http://localhost:8002"
-DEFAULT_ENROLLMENT_URL = "http://localhost:8003"
-DEFAULT_RISK_FUSION_URL = "http://localhost:8000"
-DEFAULT_POLICY_ENGINE_URL = "http://localhost:8004"
-DEFAULT_ALERTING_URL = "http://localhost:8005"
+DEFAULT_FEATURE_EXTRACTION_URL = os.environ.get("FEATURE_EXTRACTION_URL", "http://localhost:8001")
+DEFAULT_SPOOF_DETECTION_URL = os.environ.get("SPOOF_DETECTION_URL", "http://localhost:8002")
+DEFAULT_ENROLLMENT_URL = os.environ.get("ENROLLMENT_URL", "http://localhost:8003")
+DEFAULT_RISK_FUSION_URL = os.environ.get("RISK_FUSION_URL", "http://localhost:8000")
+DEFAULT_POLICY_ENGINE_URL = os.environ.get("POLICY_ENGINE_URL", "http://localhost:8004")
+DEFAULT_ALERTING_URL = os.environ.get("ALERTING_URL", "http://localhost:8005")
 
 DOWNSTREAM_TIMEOUT_S = 5.0
 
@@ -168,6 +169,7 @@ class PipelineClient:
         synthesis_signal: SignalIn,
         speaker_match_signal: SignalIn,
         contextual_signal: SignalIn,
+        content_risk_signal: Optional[SignalIn] = None,
     ) -> Optional[RiskAssessmentResponse]:
         """POST /v1/assess -> RiskAssessmentResponse or None on failure."""
         payload = RiskAssessmentRequest(
@@ -176,6 +178,7 @@ class PipelineClient:
             synthesis_signal=synthesis_signal,
             speaker_match_signal=speaker_match_signal,
             contextual_signal=contextual_signal,
+            content_risk_signal=content_risk_signal,
         )
         try:
             resp = await self._client.post(

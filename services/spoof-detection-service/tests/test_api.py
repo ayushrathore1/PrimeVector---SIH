@@ -70,8 +70,8 @@ def test_detect_returns_risk_signal_shape(client):
     assert isinstance(data["detail"], str)
 
 
-def test_detect_with_stub_registry_returns_unavailable(client):
-    """With the default stub registry, detection returns available=false."""
+def test_detect_with_heuristic_registry_returns_available(client):
+    """With the default heuristic registry, detection returns available=true with a real score."""
     response = client.post("/v1/detect", json={
         "call_session_id": "test-002",
         "tenant_id": "tenant-001",
@@ -79,7 +79,10 @@ def test_detect_with_stub_registry_returns_unavailable(client):
     })
     assert response.status_code == 200
     data = response.json()
-    assert data["available"] is False
+    assert data["available"] is True
+    assert 0.0 <= data["score"] <= 1.0
+    assert 0.0 <= data["confidence"] <= 1.0
+    assert "heuristic" in data["detail"]
 
 
 # =====================================================================

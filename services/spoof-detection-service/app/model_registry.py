@@ -75,31 +75,58 @@ class ModelRegistry(ABC):
         ...
 
 
+import numpy as np
+
+
+# MVP heuristic — not a trained model. Replace with a real classifier (AASIST/RawNet2-class) before production use.
+def heuristic_synthesis_score(audio_features: Any) -> float:
+    """
+    Cheap heuristic: real speech has natural variance across frames;
+    overly smooth/uniform spectra are more consistent with synthetic
+    audio. Returns a score in [0, 1] — higher = more suspicious.
+    NOT a trained classifier. Documented as a placeholder heuristic.
+    """
+    arr = np.array(audio_features, dtype=np.float32)
+    if arr.size == 0:
+        return 0.5
+    if arr.size % 80 == 0 and arr.size >= 80:
+        mel_spectrogram = arr.reshape(-1, 80)
+    else:
+        mel_spectrogram = arr.reshape(1, -1)
+
+    frame_variance = float(np.var(mel_spectrogram, axis=0).mean())
+    SOME_EMPIRICAL_BASELINE = 10.0
+    score = 1.0 - min(frame_variance / SOME_EMPIRICAL_BASELINE, 1.0)
+    return float(np.clip(score, 0.0, 1.0))
+
+
+def _heuristic_model_fn(audio_features: Any) -> dict[str, float]:
+    score = heuristic_synthesis_score(audio_features)
+    eps = 1e-4
+    clamped = max(eps, min(1.0 - eps, score))
+    logit = float(np.log(clamped / (1.0 - clamped)))
+    return {"score": score, "logit": logit}
+
+
 class StubModelRegistry(ModelRegistry):
     """
-    Stub registry that returns None for all lookups.
-
-    BLOCKING DEPENDENCY: the service will start and respond to requests,
-    but every detection will return available=false because no model is
-    loaded. This is the correct fail-safe behavior per fusion.py design
-    decision 4: "an unavailable signal is evidence of nothing, not
-    evidence of safety."
-
-    To unblock: register a real wav2vec2-class checkpoint fine-tuned on
-    ASVspoof-style data via a concrete ModelRegistry implementation.
+    ModelRegistry serving the heuristic spoof detection model when enabled,
+    or returning None when unconfigured (empty stub mode).
     """
 
-    def __init__(self):
-        logger.warning(
-            "StubModelRegistry is active — no real models are loaded. "
-            "All spoof detection requests will return available=false. "
-            "This is a BLOCKING DEPENDENCY: register a pretrained "
-            "spoof-detection model to produce real scores."
-        )
+    def __init__(self, enable_heuristic: bool = False):
+        self.enable_heuristic = enable_heuristic
+        self._entries = {}
+        if enable_heuristic:
+            self._entries["spoof-detector/generic"] = ModelRegistryEntry(
+                model=_heuristic_model_fn,
+                version="heuristic-v0.1.0",
+            )
 
     def get_model(self, model_key: str) -> Optional[ModelRegistryEntry]:
-        logger.debug("StubModelRegistry.get_model('%s') -> None", model_key)
-        return None
+        return self._entries.get(model_key)
 
     def list_models(self, prefix: str = "") -> list[str]:
-        return []
+        return [k for k in self._entries if k.startswith(prefix)]
+
+

@@ -46,7 +46,7 @@ func LoadFromEnv() *Config {
 		RateLimitRPS:         getEnvAsFloat("RATE_LIMIT_RPS", 100.0),
 		RateLimitBurst:       getEnvAsInt("RATE_LIMIT_BURST", 200),
 		DownstreamTimeout:    getEnvAsDuration("DOWNSTREAM_TIMEOUT", 250*time.Millisecond),
-		DownstreamURL:        getEnv("DOWNSTREAM_URL", "http://feature-extraction-service:8000"),
+		DownstreamURL:        getEnv("DOWNSTREAM_URL", "http://feature-extraction-service:8001"),
 		EnableCircuitBreaker: getEnvAsBool("ENABLE_CIRCUIT_BREAKER", true),
 	}
 	return cfg

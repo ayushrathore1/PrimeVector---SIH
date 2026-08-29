@@ -24,6 +24,7 @@ from typing import Optional
 from models import EnrollmentStatus
 from interfaces import LivenessChecker, ModelRegistry
 from challenge import generate_challenge
+from matcher import compute_speaker_match_signal
 
 # The number of capture sessions on distinct calendar days required before
 # a voiceprint is marked ENROLLED. This is a security parameter from
@@ -359,6 +360,15 @@ class EnrollmentService:
     def get_status(self, tenant_id: str, subject_id: str) -> Voiceprint | None:
         """Return the current voiceprint or None if no enrollment exists."""
         return self.store.get_voiceprint(tenant_id, subject_id)
+
+    def match_speaker(
+        self, tenant_id: str, subject_id: str, live_embedding: list[float],
+    ) -> dict:
+        """Compare a live_embedding vector against enrolled voiceprint vectors."""
+        vp = self.get_status(tenant_id, subject_id)
+        if vp is None or vp.status != EnrollmentStatus.ENROLLED:
+            return compute_speaker_match_signal(live_embedding, [])
+        return compute_speaker_match_signal(live_embedding, vp.embedding_vectors)
 
     # ---------------------------------------------------------------
     # ⚠️ COMPLIANCE: FLAG FOR REVIEW — revocation is compliance-relevant.

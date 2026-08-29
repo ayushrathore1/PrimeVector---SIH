@@ -40,6 +40,11 @@ class PipelineRequest(BaseModel):
         le=1.0,
         description="Contextual risk metadata (e.g., transfer amount, device risk).",
     )
+    transcript: str = Field(
+        default="",
+        description="Conversation transcript for content-risk analysis. "
+                    "PII-redacted by the caller before sending.",
+    )
 
 
 # -----------------------------------------------------------------------
@@ -119,6 +124,7 @@ class RiskAssessmentRequest(BaseModel):
     synthesis_signal: SignalIn
     speaker_match_signal: SignalIn
     contextual_signal: SignalIn
+    content_risk_signal: Optional[SignalIn] = None
 
 
 class RiskAssessmentResponse(BaseModel):
@@ -198,6 +204,7 @@ class PipelineResponse(BaseModel):
     extraction: Optional[ExtractionResponse] = None
     synthesis_signal: Optional[SynthesisSignalResponse] = None
     speaker_match_signal: Optional[SignalIn] = None
+    content_risk_signal: Optional[SignalIn] = None
     risk_assessment: Optional[RiskAssessmentResponse] = None
     policy_decision: Optional[PolicyDecision] = None
     alert_event: Optional[EventAcceptedResponse] = None

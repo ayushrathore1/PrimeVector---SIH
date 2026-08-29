@@ -51,10 +51,55 @@ graph TD
 
 ### Option 1: Run All Services via Docker Compose (Recommended)
 
-To start the entire environment with a single command:
+**Prerequisites:** Docker 24.0+ and Docker Compose v2+ installed.
 
+#### Initial Setup (one-time)
 ```bash
-docker-compose up --build
+# 1. Create .env from template and fill in your Groq API key
+cp .env.example .env
+# Edit .env and set GROQ_API_KEY=your-actual-key
+```
+
+#### Start the Full Stack
+```bash
+docker compose up --build
+```
+
+All 8 services start in dependency order. Healthchecks gate startup:
+Tier 0 services (risk-fusion, feature-extraction, spoof-detection, enrollment)
+start first, then policy-threshold-engine, then alerting-service, then orchestrator.
+The ingestion-gateway starts independently (standalone/best-effort).
+
+#### Start a Single Service (+ its dependencies)
+```bash
+docker compose up --build orchestrator        # starts orchestrator + all upstream deps
+docker compose up --build feature-extraction-service  # starts just this one (no deps)
+```
+
+#### Restart a Single Service (no rebuild, no dependency restart)
+```bash
+docker compose restart orchestrator
+```
+
+#### Stop Everything
+```bash
+docker compose down
+```
+
+#### Hot Reload
+Source code is mounted as volumes. Edit any `app/` file and uvicorn will
+auto-reload — no rebuild required.
+
+#### Verify All Services Are Healthy
+```bash
+docker compose ps
+# All Python services should show "healthy" status
+# ingestion-gateway shows "healthy" (process-alive check)
+
+# Quick curl check for all HTTP services:
+for port in 8000 8001 8002 8003 8004 8005 8080; do
+  echo "Port $port: $(curl -sf http://localhost:$port/healthz)"
+done
 ```
 
 ---
