@@ -26,7 +26,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = "llama-3.1-8b-instant"
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
 GROQ_TIMEOUT_S = 6.0
 
 SYSTEM_PROMPT = """You are a financial fraud content analyzer for phone calls in India.
