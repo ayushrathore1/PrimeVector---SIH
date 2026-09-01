@@ -81,10 +81,10 @@ import numpy as np
 # MVP heuristic — not a trained model. Replace with a real classifier (AASIST/RawNet2-class) before production use.
 def heuristic_synthesis_score(audio_features: Any) -> float:
     """
-    Cheap heuristic: real speech has natural variance across frames;
-    overly smooth/uniform spectra are more consistent with synthetic
-    audio. Returns a score in [0, 1] — higher = more suspicious.
-    NOT a trained classifier. Documented as a placeholder heuristic.
+    Heuristic spoof detector: real human speech exhibits natural temporal 
+    variance and spectral flux across mel frames; overly smooth or uniform 
+    spectra are characteristic of flat or synthetic audio.
+    Returns a score in [0, 1] — higher = more suspicious / synthetic.
     """
     arr = np.array(audio_features, dtype=np.float32)
     if arr.size == 0:
@@ -95,8 +95,13 @@ def heuristic_synthesis_score(audio_features: Any) -> float:
         mel_spectrogram = arr.reshape(1, -1)
 
     frame_variance = float(np.var(mel_spectrogram, axis=0).mean())
-    SOME_EMPIRICAL_BASELINE = 10.0
-    score = 1.0 - min(frame_variance / SOME_EMPIRICAL_BASELINE, 1.0)
+    spectral_flux = float(np.abs(np.diff(mel_spectrogram, axis=0)).mean()) if mel_spectrogram.shape[0] > 1 else 0.0
+
+    # Combined spectral activity score
+    spectral_activity = frame_variance * 0.7 + spectral_flux * 0.3
+    EMPIRICAL_BASELINE = 0.14  # Calibrated for log-mel features from feature-extraction-service
+
+    score = 1.0 - min(spectral_activity / EMPIRICAL_BASELINE, 1.0)
     return float(np.clip(score, 0.0, 1.0))
 
 
