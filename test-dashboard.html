@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PrimeVector — Test Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242836;
+    --border: #2e3348;
+    --text: #e4e6f0;
+    --text2: #8b8fa8;
+    --accent: #6c5ce7;
+    --green: #00d68f;
+    --red: #ff6b6b;
+    --orange: #ffa348;
+    --blue: #4ecdc4;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px;
+  }
+  h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 4px;
+  }
+  .subtitle { color: var(--text2); font-size: 0.85rem; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 1200px; margin: 0 auto; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+  .card h3 { font-size: 0.85rem; font-weight: 600; margin: 16px 0 8px; color: var(--text2); }
+
+  /* Health grid */
+  .health-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .health-item {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+  }
+  .health-item .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text2);
+  }
+  .health-item .dot.ok { background: var(--green); box-shadow: 0 0 8px rgba(0,214,143,0.4); }
+  .health-item .dot.fail { background: var(--red); box-shadow: 0 0 8px rgba(255,107,107,0.4); }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-green { background: var(--green); color: #0f1117; }
+  .btn-red { background: var(--red); color: white; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* Form elements */
+  textarea, input, select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.85rem;
+    resize: vertical;
+  }
+  textarea:focus, input:focus { border-color: var(--accent); outline: none; }
+  label { display: block; font-size: 0.8rem; color: var(--text2); margin-bottom: 4px; font-weight: 500; }
+
+  /* Presets */
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .preset-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .preset-btn:hover { border-color: var(--accent); background: rgba(108,92,231,0.15); }
+  .preset-btn.danger { border-color: rgba(255,107,107,0.3); }
+  .preset-btn.danger:hover { border-color: var(--red); background: rgba(255,107,107,0.1); }
+  .preset-btn.safe { border-color: rgba(0,214,143,0.3); }
+  .preset-btn.safe:hover { border-color: var(--green); background: rgba(0,214,143,0.1); }
+
+  /* Recording */
+  .mic-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 0;
+  }
+  .mic-btn {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .mic-btn.recording {
+    border-color: var(--red);
+    background: rgba(255,107,107,0.15);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,107,0.4); }
+    50% { box-shadow: 0 0 0 12px rgba(255,107,107,0); }
+  }
+  .mic-status { font-size: 0.8rem; color: var(--text2); }
+
+  /* Results */
+  .result-area {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 12px;
+    min-height: 60px;
+  }
+  .signal-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0;
+  }
+  .signal-label { font-size: 0.75rem; color: var(--text2); width: 130px; flex-shrink: 0; }
+  .signal-track {
+    flex: 1;
+    height: 20px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .signal-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: white;
+  }
+  .signal-fill.low { background: linear-gradient(90deg, #1a5c3a, var(--green)); }
+  .signal-fill.med { background: linear-gradient(90deg, #7a5a00, var(--orange)); }
+  .signal-fill.high { background: linear-gradient(90deg, #7a1a1a, var(--red)); }
+
+  .verdict-box {
+    margin-top: 16px;
+    padding: 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+  .verdict-box.safe { background: rgba(0,214,143,0.12); border: 1px solid rgba(0,214,143,0.3); color: var(--green); }
+  .verdict-box.warn { background: rgba(255,163,72,0.12); border: 1px solid rgba(255,163,72,0.3); color: var(--orange); }
+  .verdict-box.danger { background: rgba(255,107,107,0.12); border: 1px solid rgba(255,107,107,0.3); color: var(--red); }
+
+  .json-toggle {
+    font-size: 0.75rem;
+    color: var(--accent);
+    cursor: pointer;
+    margin-top: 8px;
+    display: inline-block;
+  }
+  .json-toggle:hover { text-decoration: underline; }
+  .json-raw {
+    display: none;
+    margin-top: 8px;
+    background: var(--bg);
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 0.7rem;
+    font-family: 'Courier New', monospace;
+    max-height: 300px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: var(--text2);
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .full-width { grid-column: 1 / -1; }
+
+  @media (max-width: 768px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div style="max-width:1200px; margin:0 auto;">
+  <h1>🛡️ PrimeVector — Test Dashboard</h1>
+  <p class="subtitle">Voice Integrity & Impersonation Detection Platform — Interactive QA Console</p>
+
+  <div class="grid">
+    <!-- HEALTH CHECK CARD -->
+    <div class="card">
+      <h2>🏥 Service Health</h2>
+      <button class="btn btn-outline" onclick="checkHealth()" id="healthBtn">Check All Services</button>
+      <div class="health-grid" id="healthGrid" style="margin-top:12px;"></div>
+    </div>
+
+    <!-- QUICK INFO CARD -->
+    <div class="card">
+      <h2>📋 How To Test</h2>
+      <div style="font-size:0.8rem; color:var(--text2); line-height:1.7;">
+        <b style="color:var(--text)">Option A — Use preset transcripts:</b><br>
+        Click a preset button below, then hit "Run Pipeline".<br><br>
+        <b style="color:var(--text)">Option B — Record your voice:</b><br>
+        Click the 🎤 mic button, speak for 1-3 seconds, click again to stop, then type a transcript and hit "Run Pipeline".<br><br>
+        <b style="color:var(--text)">Option C — PowerShell / curl:</b><br>
+        See commands at the bottom of this page.
+      </div>
+    </div>
+
+    <!-- PIPELINE TEST CARD -->
+    <div class="card full-width">
+      <h2>🚀 Pipeline Test</h2>
+
+      <h3>1. Choose a preset transcript (or type your own)</h3>
+      <div class="presets">
+        <button class="preset-btn danger" onclick="setPreset('scam1')">🔴 OTP + Money Transfer</button>
+        <button class="preset-btn danger" onclick="setPreset('scam2')">🔴 Bank Officer Scam</button>
+        <button class="preset-btn danger" onclick="setPreset('scam3')">🔴 KYC Threat</button>
+        <button class="preset-btn safe" onclick="setPreset('safe1')">🟢 Lunch Plans</button>
+        <button class="preset-btn safe" onclick="setPreset('safe2')">🟢 Weather Chat</button>
+        <button class="preset-btn safe" onclick="setPreset('safe3')">🟢 Project Discussion</button>
+      </div>
+      <textarea id="transcript" rows="3" placeholder="Type or paste a transcript here..."></textarea>
+
+      <h3>2. Audio source (optional — a test tone is used if you don't record)</h3>
+      <div class="mic-area">
+        <button class="mic-btn" id="micBtn" onclick="toggleRecording()" title="Click to record from microphone">🎤</button>
+        <div>
+          <div class="mic-status" id="micStatus">Click mic to record (or skip — a test tone will be used)</div>
+          <div class="mic-status" id="micDuration" style="color:var(--accent)"></div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:end;">
+        <div style="flex:1; min-width:150px;">
+          <label>Context Score (0.0 = safe, 1.0 = risky context)</label>
+          <input type="number" id="contextScore" value="0.3" min="0" max="1" step="0.1">
+        </div>
+        <div style="flex:1; min-width:150px;">
+          <label>Tenant ID</label>
+          <input type="text" id="tenantId" value="qa-tenant">
+        </div>
+        <button class="btn btn-primary" onclick="runPipeline()" id="runBtn">▶ Run Pipeline</button>
+      </div>
+
+      <!-- RESULTS -->
+      <div id="resultsArea" style="display:none;">
+        <h3>Results</h3>
+        <div class="result-area">
+          <div id="signalBars"></div>
+          <div id="verdictBox"></div>
+          <span class="json-toggle" onclick="toggleJson()">▸ Show raw JSON response</span>
+          <div class="json-raw" id="jsonRaw"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CURL COMMANDS -->
+    <div class="card full-width">
+      <h2>💻 PowerShell Commands (copy-paste ready)</h2>
+      <h3>Health check (all services)</h3>
+      <pre style="background:var(--bg); padding:12px; border-radius:6px; font-size:0.75rem; overflow-x:auto; color:var(--blue);">@(8000,8001,8002,8003,8004,8005,8080) | % { Write-Host "Port $_`: " -NoNewline; (Invoke-RestMethod "http://localhost:$_/healthz").status }</pre>
+
+      <h3>Full pipeline (scam transcript)</h3>
+      <pre style="background:var(--bg); padding:12px; border-radius:6px; font-size:0.75rem; overflow-x:auto; color:var(--blue);">$body = @{
+  session_id  = "manual-test-$(Get-Random)"
+  tenant_id   = "qa-tenant"
+  subject_id  = "test-subject"
+  audio_pcm_base64 = [Convert]::ToBase64String([byte[]]::new(32000))
+  sample_rate_hz = 16000
+  channels    = 1
+  context_score = 0.3
+  transcript  = "Please transfer 50000 rupees and share the OTP now"
+} | ConvertTo-Json
+
+$r = Invoke-RestMethod -Uri http://localhost:8080/v1/pipeline/process `
+  -Method Post -Body $body -ContentType 'application/json' -TimeoutSec 60
+
+Write-Host "Risk Score  : $($r.risk_assessment.risk_score)"
+Write-Host "Final Action: $($r.final_action)"
+Write-Host "Content Risk: $($r.content_risk_signal.score) ($($r.content_risk_signal.detail))"
+Write-Host "Degraded    : $($r.degraded)"</pre>
+
+      <h3>Risk fusion (direct — try different signal combinations)</h3>
+      <pre style="background:var(--bg); padding:12px; border-radius:6px; font-size:0.75rem; overflow-x:auto; color:var(--blue);">$body = @{
+  call_session_id = "fusion-test"
+  tenant_id = "qa-tenant"
+  synthesis_signal    = @{ score = 0.1; confidence = 0.9; available = $true; detail = "low" }
+  speaker_match_signal = @{ score = 0.05; confidence = 0.95; available = $true; detail = "low" }
+  contextual_signal   = @{ score = 0.1; confidence = 1.0; available = $true; detail = "low" }
+  content_risk_signal = @{ score = 0.9; confidence = 0.85; available = $true; detail = "scam" }
+} | ConvertTo-Json -Depth 3
+
+Invoke-RestMethod -Uri http://localhost:8000/v1/assess -Method Post `
+  -Body $body -ContentType 'application/json' | ConvertTo-Json -Depth 3</pre>
+    </div>
+  </div>
+</div>
+
+<script>
+const PRESETS = {
+  scam1: "Please transfer 50000 rupees immediately to this account number and share the OTP you just received on your phone. This is urgent.",
+  scam2: "This is calling from State Bank of India security department. Your account has been compromised. Please share your Aadhaar number and the 6-digit code we just sent to verify your identity.",
+  scam3: "Your KYC is expiring today. If you don't update it right now by sharing your PAN card and bank login, your account will be permanently blocked within 2 hours.",
+  safe1: "Are we still meeting for lunch tomorrow? I was thinking we could try that new restaurant near the park.",
+  safe2: "The weather is beautiful today. I went for a morning walk and it felt really nice. How's your weekend going?",
+  safe3: "Hey, I reviewed the project proposal you sent. The timeline looks good. Can we discuss the budget in tomorrow's meeting?"
+};
+
+function setPreset(key) {
+  document.getElementById('transcript').value = PRESETS[key];
+  // Set context score based on preset type
+  document.getElementById('contextScore').value = key.startsWith('scam') ? '0.5' : '0.1';
+}
+
+// ---- HEALTH CHECK ----
+async function checkHealth() {
+  const btn = document.getElementById('healthBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Checking...';
+
+  const services = [
+    { name: 'risk-fusion', port: 8000 },
+    { name: 'feature-extract', port: 8001 },
+    { name: 'spoof-detect', port: 8002 },
+    { name: 'enrollment', port: 8003 },
+    { name: 'policy-engine', port: 8004 },
+    { name: 'alerting', port: 8005 },
+    { name: 'orchestrator', port: 8080 },
+  ];
+
+  const grid = document.getElementById('healthGrid');
+  grid.innerHTML = services.map(s =>
+    `<div class="health-item"><span>${s.name}</span><div class="dot" id="dot-${s.port}"></div></div>`
+  ).join('');
+
+  for (const s of services) {
+    try {
+      const r = await fetch(`/api/${s.port}/healthz`, { signal: AbortSignal.timeout(5000) });
+      document.getElementById(`dot-${s.port}`).className = r.ok ? 'dot ok' : 'dot fail';
+    } catch {
+      document.getElementById(`dot-${s.port}`).className = 'dot fail';
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Check All Services';
+}
+
+// ---- MICROPHONE RECORDING & LIVE TRANSCRIPTION ----
+let mediaRecorder = null;
+let audioChunks = [];
+let recordedBase64 = null;
+let recordingStart = null;
+let durationInterval = null;
+let speechRecognizer = null;
+
+async function toggleRecording() {
+  const btn = document.getElementById('micBtn');
+  const status = document.getElementById('micStatus');
+  const dur = document.getElementById('micDuration');
+
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    if (speechRecognizer) {
+      try { speechRecognizer.stop(); } catch(e){}
+    }
+    btn.classList.remove('recording');
+    btn.textContent = '🎤';
+    status.textContent = 'Processing audio & transcription...';
+    clearInterval(durationInterval);
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, channelCount: 1 } });
+    audioChunks = [];
+    recordedBase64 = null;
+    mediaRecorder = new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(audioChunks, { type: 'audio/webm' });
+
+      // Decode to PCM 16-bit
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+      const arrayBuf = await blob.arrayBuffer();
+      const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
+      const float32 = audioBuf.getChannelData(0);
+
+      // Convert to 16-bit PCM
+      const pcm16 = new Int16Array(float32.length);
+      for (let i = 0; i < float32.length; i++) {
+        const s = Math.max(-1, Math.min(1, float32[i]));
+        pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      }
+
+      // Base64 encode
+      const bytes = new Uint8Array(pcm16.buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      recordedBase64 = btoa(binary);
+
+      audioCtx.close();
+      const seconds = (float32.length / 16000).toFixed(1);
+      status.textContent = `✅ Recorded ${seconds}s audio (${(bytes.length/1024).toFixed(0)} KB PCM)`;
+      dur.textContent = '';
+    };
+
+    mediaRecorder.start();
+
+    // Live Web Speech Recognition if available
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      speechRecognizer = new SpeechRecognition();
+      speechRecognizer.continuous = true;
+      speechRecognizer.interimResults = true;
+      speechRecognizer.lang = 'en-US';
+
+      let liveTranscript = '';
+      speechRecognizer.onresult = (event) => {
+        liveTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          liveTranscript += event.results[i][0].transcript;
+        }
+        if (liveTranscript.trim()) {
+          document.getElementById('transcript').value = liveTranscript.trim();
+        }
+      };
+      speechRecognizer.start();
+    }
+
+    btn.classList.add('recording');
+    btn.textContent = '⏹';
+    recordingStart = Date.now();
+    status.textContent = '🎙️ Recording & Live Transcribing... Speak into your mic!';
+
+    durationInterval = setInterval(() => {
+      const elapsed = ((Date.now() - recordingStart) / 1000).toFixed(1);
+      dur.textContent = `${elapsed}s`;
+    }, 100);
+
+  } catch (err) {
+    status.textContent = `❌ Mic error: ${err.message}. Using test tone instead.`;
+  }
+}
+
+// Generate synthetic test tone as fallback
+function generateTestTone() {
+  const sampleRate = 16000;
+  const duration = 1.0;
+  const freq = 440;
+  const nSamples = Math.floor(sampleRate * duration);
+  const pcm16 = new Int16Array(nSamples);
+  for (let i = 0; i < nSamples; i++) {
+    pcm16[i] = Math.floor(32767 * 0.8 * Math.sin(2 * Math.PI * freq * i / sampleRate));
+  }
+  const bytes = new Uint8Array(pcm16.buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
+// ---- RUN PIPELINE ----
+async function runPipeline() {
+  const btn = document.getElementById('runBtn');
+  const transcript = document.getElementById('transcript').value.trim();
+  const contextScore = parseFloat(document.getElementById('contextScore').value) || 0.3;
+  const tenantId = document.getElementById('tenantId').value || 'qa-tenant';
+
+  if (!transcript) {
+    alert('Please enter a transcript (or record your voice / click a preset)');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Running...';
+
+  const audioBase64 = recordedBase64 || generateTestTone();
+  const sessionId = `dashboard-${Date.now()}`;
+
+  const payload = {
+    session_id: sessionId,
+    tenant_id: tenantId,
+    subject_id: 'dashboard-test-subject',
+    audio_pcm_base64: audioBase64,
+    sample_rate_hz: 16000,
+    channels: 1,
+    context_score: contextScore,
+    transcript: transcript,
+  };
+
+  try {
+    const res = await fetch('/api/8080/v1/pipeline/process', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(60000),
+    });
+    const data = await res.json();
+    showResults(data);
+  } catch (err) {
+    document.getElementById('resultsArea').style.display = 'block';
+    document.getElementById('signalBars').innerHTML = `<div style="color:var(--red)">❌ Error: ${err.message}</div>`;
+    document.getElementById('verdictBox').innerHTML = '';
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '▶ Run Pipeline';
+}
+
+function showResults(data) {
+  document.getElementById('resultsArea').style.display = 'block';
+
+  const signals = [
+    { key: 'synthesis_signal', label: 'Synthesis Detection', icon: '🔊' },
+    { key: 'speaker_match_signal', label: 'Speaker Mismatch', icon: '👤' },
+    { key: 'content_risk_signal', label: 'Content Risk (LLM)', icon: '📝' },
+  ];
+
+  let barsHtml = '';
+  for (const s of signals) {
+    const sig = data[s.key];
+    if (!sig) {
+      barsHtml += `<div class="signal-bar">
+        <span class="signal-label">${s.icon} ${s.label}</span>
+        <span style="font-size:0.75rem;color:var(--text2)">N/A (unavailable)</span>
+      </div>`;
+      continue;
+    }
+    const score = sig.score ?? 0;
+    const pct = Math.round(score * 100);
+    const avail = sig.available;
+    const cls = !avail ? 'low' : score < 0.3 ? 'low' : score < 0.7 ? 'med' : 'high';
+    const detail = sig.detail || '';
+
+    barsHtml += `<div class="signal-bar">
+      <span class="signal-label">${s.icon} ${s.label}</span>
+      <div class="signal-track">
+        <div class="signal-fill ${cls}" style="width:${Math.max(pct, 3)}%">${avail ? pct + '%' : 'N/A'}</div>
+      </div>
+    </div>
+    <div style="font-size:0.7rem;color:var(--text2);margin:-4px 0 8px 138px;">${detail}</div>`;
+  }
+
+  // Fused risk score
+  const risk = data.risk_assessment;
+  if (risk) {
+    const rScore = risk.risk_score ?? 0;
+    const rPct = Math.round(rScore * 100);
+    const rCls = rScore < 0.3 ? 'low' : rScore < 0.7 ? 'med' : 'high';
+    barsHtml += `<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;">
+      <div class="signal-bar">
+        <span class="signal-label" style="font-weight:700;">⚡ FUSED RISK</span>
+        <div class="signal-track" style="height:26px;">
+          <div class="signal-fill ${rCls}" style="width:${Math.max(rPct, 3)}%;font-size:0.85rem;">${rPct}%</div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('signalBars').innerHTML = barsHtml;
+
+  // Verdict
+  const action = data.final_action || 'UNKNOWN';
+  const degraded = data.degraded;
+  let verdictCls, verdictText;
+
+  if (action === 'PROCEED') {
+    verdictCls = 'safe';
+    verdictText = '✅ PROCEED — Low Risk';
+  } else if (action.includes('CALLBACK')) {
+    verdictCls = 'warn';
+    verdictText = `⚠️ ${action.replace(/_/g, ' ')}`;
+  } else {
+    verdictCls = 'danger';
+    verdictText = `🚨 ${action.replace(/_/g, ' ')}`;
+  }
+  if (degraded) verdictText += ' (DEGRADED — partial signals)';
+
+  // Build Fraud Explanation Breakdown
+  const crSignal = data.content_risk_signal;
+  const synthSignal = data.synthesis_signal;
+  const speakerSignal = data.speaker_match_signal;
+  const explanation = data.explanation || (risk ? risk.explanation : '');
+
+  let fraudBreakdownHtml = '';
+  if (action !== 'PROCEED') {
+    fraudBreakdownHtml = `
+      <div style="margin-top:16px; background:rgba(255,107,107,0.08); border:1px solid rgba(255,107,107,0.25); border-radius:8px; padding:14px;">
+        <h4 style="color:var(--red); font-size:0.9rem; font-weight:700; margin-bottom:8px;">🔍 Fraud & Risk Breakdown ("Why it is flagged"):</h4>
+        <ul style="font-size:0.8rem; color:var(--text); line-height:1.6; padding-left:18px;">
+    `;
+
+    if (crSignal && crSignal.available && crSignal.score > 0.4) {
+      fraudBreakdownHtml += `<li><b style="color:var(--red)">Conversation Content Scam Flagged:</b> ${crSignal.detail || 'High scam risk detected by Groq LLM'} (Content Risk Score: ${(crSignal.score*100).toFixed(0)}%)</li>`;
+    }
+    if (synthSignal && synthSignal.available && synthSignal.score > 0.5) {
+      fraudBreakdownHtml += `<li><b style="color:var(--red)">AI Voice Clone / Synthesis Detected:</b> High probability of synthetic audio (Synthesis Score: ${(synthSignal.score*100).toFixed(0)}%)</li>`;
+    }
+    if (speakerSignal && !speakerSignal.available) {
+      fraudBreakdownHtml += `<li><b style="color:var(--orange)">Voiceprint Verification:</b> Subject is NOT enrolled on file (Voice Match unavailable)</li>`;
+    } else if (speakerSignal && speakerSignal.score > 0.4) {
+      fraudBreakdownHtml += `<li><b style="color:var(--red)">Voice Mismatch:</b> Audio does not match enrolled user's voiceprint</li>`;
+    }
+    if (explanation) {
+      fraudBreakdownHtml += `<li style="margin-top:6px; color:var(--text2);"><b>System Decision Logic:</b> ${explanation}</li>`;
+    }
+
+    fraudBreakdownHtml += `</ul></div>`;
+  } else {
+    fraudBreakdownHtml = `
+      <div style="margin-top:16px; background:rgba(0,214,143,0.08); border:1px solid rgba(0,214,143,0.25); border-radius:8px; padding:14px;">
+        <h4 style="color:var(--green); font-size:0.9rem; font-weight:700; margin-bottom:4px;">🟢 Safe Assessment:</h4>
+        <p style="font-size:0.8rem; color:var(--text);">${explanation || 'No scam indicators or voice synthesis anomalies detected.'}</p>
+      </div>
+    `;
+  }
+
+  document.getElementById('verdictBox').innerHTML =
+    `<div class="verdict-box ${verdictCls}">${verdictText}</div>` + fraudBreakdownHtml;
+
+  // JSON
+  document.getElementById('jsonRaw').textContent = JSON.stringify(data, null, 2);
+}
+
+function toggleJson() {
+  const el = document.getElementById('jsonRaw');
+  const toggle = el.previousElementSibling;
+  if (el.style.display === 'none' || !el.style.display) {
+    el.style.display = 'block';
+    toggle.textContent = '▾ Hide raw JSON response';
+  } else {
+    el.style.display = 'none';
+    toggle.textContent = '▸ Show raw JSON response';
+  }
+}
+
+// Auto health check on load
+window.addEventListener('load', () => { checkHealth(); });
+</script>
+</body>
+</html>
