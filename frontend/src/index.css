@@ -1,0 +1,222 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --canvas: #F6F6F2;
+    --surface: #FFFFFF;
+    --ink: #111310;
+    --muted: #5F625D;
+    --line: #D9DBD5;
+    --accent: #155EEF;
+    --accent2: #3568FF;
+    --cyan: #18B7D9;
+    --lime: #B8E85C;
+    --violet: #7357FF;
+    --success: #16794A;
+    --warning: #A15C00;
+    --danger: #B42318;
+    --dark: #101411;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html {
+    scroll-behavior: smooth;
+    font-family: 'IBM Plex Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background:
+      radial-gradient(900px 500px at 12% 4%, rgba(53,104,255,.11), transparent 65%),
+      radial-gradient(700px 500px at 88% 18%, rgba(24,183,217,.09), transparent 62%),
+      var(--canvas);
+    color: var(--ink);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  ::selection { background: #155EEF; color: #fff; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--canvas); }
+  ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  .font-mono { font-family: 'IBM Plex Mono', monospace; }
+
+  input, textarea, select {
+    font-family: inherit;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, textarea:focus, select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(21,94,239,0.08);
+  }
+}
+
+/* Animated gradient top-bar for panels */
+.panel-bar {
+  position: relative;
+  overflow: hidden;
+}
+.panel-bar::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--cyan), var(--lime), transparent);
+  background-size: 220% 100%;
+  animation: gradientRun 4s linear infinite;
+}
+@keyframes gradientRun { to { background-position: 220% 0; } }
+
+/* Card left accent bar on hover */
+.card-accent {
+  position: relative;
+  overflow: hidden;
+}
+.card-accent::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0;
+  width: 3px; height: 0;
+  background: linear-gradient(to bottom, var(--accent), var(--cyan), var(--lime));
+  transition: height 0.35s ease;
+}
+.card-accent:hover::before { height: 100%; }
+
+/* Reveal animation */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.65s ease, transform 0.65s cubic-bezier(0.22,1,0.36,1);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Page transition */
+.page-enter {
+  opacity: 0;
+  transform: translateY(12px);
+}
+.page-enter-active {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.16,1,0.3,1);
+}
+
+/* Section heading blue line */
+.section-line::after {
+  content: '';
+  display: block;
+  width: 52px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--cyan));
+  border-radius: 4px;
+  margin-top: 16px;
+}
+
+/* Signal pulse dot */
+@keyframes dotPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(22,121,74,0.25); }
+  50% { box-shadow: 0 0 0 6px rgba(22,121,74,0); }
+}
+.dot-pulse::before {
+  content: '';
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: dotPulse 2s infinite;
+  display: inline-block;
+  margin-right: 6px;
+}
+
+/* Status dot */
+@keyframes statusPulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  animation: statusPulse 2.4s ease-in-out infinite;
+}
+
+/* Risk gradient bar */
+.risk-gradient {
+  background: linear-gradient(90deg, #16794A 0%, #A15C00 50%, #B42318 100%);
+}
+
+/* Code block */
+.code-block {
+  background: #171917;
+  color: #E9ECE6;
+  border-radius: 12px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  line-height: 1.8;
+  position: relative;
+  border: 1px solid #272B27;
+  box-shadow: 0 25px 65px rgba(17,19,16,0.16);
+}
+.code-block::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 0; height: 100%;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,0.025), transparent 30%);
+}
+
+/* Signal connector animation */
+@keyframes signalTravel { to { left: 120%; } }
+
+/* Network grid background */
+.grid-bg {
+  background-image: linear-gradient(rgba(21,94,239,0.06) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(21,94,239,0.06) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Sheen animation for roadmap boxes */
+@keyframes sheen {
+  0%, 55% { left: -40%; }
+  75%, 100% { left: 120%; }
+}
+
+/* Hero title animation */
+@keyframes heroTitle {
+  from { opacity: 0; transform: translateY(34px); filter: blur(5px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* Fade up animation */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* System panel entrance */
+@keyframes panelIn {
+  from { opacity: 0; transform: translate3d(30px, 30px, 0) rotate(1deg); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Ambient floating orb */
+@keyframes ambient {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(25px, -15px, 0) scale(1.05); }
+}
+
+/* Architecture node ring */
+@keyframes ring {
+  0% { transform: scale(0.85); opacity: 0.8; }
+  100% { transform: scale(1.5); opacity: 0; }
+}

@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/components/topnav.tsx","./src/pages/architecturepage.tsx","./src/pages/dashboardpage.tsx","./src/pages/docspage.tsx","./src/pages/enrollmentpage.tsx","./src/pages/pipelinepage.tsx","./src/pages/policypage.tsx","./src/types/barba.d.ts"],"version":"5.9.3"}
