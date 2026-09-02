@@ -12,7 +12,10 @@ import urllib.request
 import urllib.error
 
 PORT = 9000
-DASHBOARD_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_DIST = os.path.join(BASE_DIR, "frontend", "dist")
+WEBSITE_DIST = os.path.join(BASE_DIR, "website", "dist")
+DASHBOARD_DIR = FRONTEND_DIST if os.path.isfile(os.path.join(FRONTEND_DIST, "index.html")) else (WEBSITE_DIST if os.path.isfile(os.path.join(WEBSITE_DIST, "index.html")) else BASE_DIR)
 
 # Routes: /api/PORT/path → http://localhost:PORT/path
 SERVICE_PORTS = [8000, 8001, 8002, 8003, 8004, 8005, 8080]
@@ -26,10 +29,23 @@ class ProxyHandler(http.server.SimpleHTTPRequestHandler):
         # Proxy: /api/8080/healthz → http://localhost:8080/healthz
         if self.path.startswith("/api/"):
             self._proxy("GET")
-        elif self.path == "/":
-            self.path = "/test-dashboard.html"
+        elif self.path in ["/dashboard", "/test-dashboard", "/test-dashboard.html"]:
+            dashboard_file = os.path.join(BASE_DIR, "test-dashboard.html")
+            with open(dashboard_file, "rb") as f:
+                content = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", len(content))
+            self.end_headers()
+            self.wfile.write(content)
+        elif self.path == "/" or self.path == "":
+            self.path = "/index.html"
             super().do_GET()
         else:
+            # Fallback to index.html for SPA client-side routing
+            target_path = os.path.join(DASHBOARD_DIR, self.path.lstrip("/"))
+            if not os.path.exists(target_path):
+                self.path = "/index.html"
             super().do_GET()
 
     def do_POST(self):

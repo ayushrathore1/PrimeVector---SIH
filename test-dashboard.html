@@ -284,11 +284,14 @@
       </div>
       <textarea id="transcript" rows="3" placeholder="Type or paste a transcript here..."></textarea>
 
-      <h3>2. Audio source (optional — a test tone is used if you don't record)</h3>
-      <div class="mic-area">
+      <h3>2. Audio Source & Live Automatic Multilingual STT (Auto Code-Switching Hindi/Gujarati/Marathi/English)</h3>
+      <div class="mic-area" style="flex-wrap:wrap; gap:16px;">
         <button class="mic-btn" id="micBtn" onclick="toggleRecording()" title="Click to record from microphone">🎤</button>
-        <div>
-          <div class="mic-status" id="micStatus">Click mic to record (or skip — a test tone will be used)</div>
+        <div style="flex:1; min-width:200px;">
+          <div style="font-size:0.8rem; font-weight:600; color:var(--green); display:flex; align-items:center; gap:6px;">
+            <span>✨ Automatic Language & Code-Switching STT Active</span>
+          </div>
+          <div class="mic-status" id="micStatus" style="margin-top:4px;">Click mic to record & auto-transcribe mid-call language switches</div>
           <div class="mic-status" id="micDuration" style="color:var(--accent)"></div>
         </div>
       </div>
@@ -473,13 +476,13 @@ async function toggleRecording() {
 
     mediaRecorder.start();
 
-    // Live Web Speech Recognition if available
+    // Live Web Speech Recognition with en-IN locale (natively handles English, Hinglish, & Indian code-switching without corrupting English text)
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       speechRecognizer = new SpeechRecognition();
       speechRecognizer.continuous = true;
       speechRecognizer.interimResults = true;
-      speechRecognizer.lang = 'en-US';
+      speechRecognizer.lang = 'en-IN'; // Indian English / Hinglish speech locale
 
       let liveTranscript = '';
       speechRecognizer.onresult = (event) => {

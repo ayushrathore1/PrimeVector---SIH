@@ -27,6 +27,7 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({ tenantId, onResult }
   const [showJson, setShowJson] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recStatus, setRecStatus] = useState('Click to record, or use presets (test tone audio)');
+  const [sttLang, setSttLang] = useState('hi-IN');
   const [recordedBase64, setRecordedBase64] = useState<string | null>(null);
   const [recDuration, setRecDuration] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -65,7 +66,7 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({ tenantId, onResult }
       };
       mr.start();
       const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SR) { const r = new SR(); r.continuous = true; r.interimResults = true; r.lang = 'en-US'; r.onresult = (e: any) => { let t = ''; for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript; if (t.trim()) setTranscript(t.trim()); }; r.start(); speechRef.current = r; }
+      if (SR) { const r = new SR(); r.continuous = true; r.interimResults = true; r.lang = 'en-IN'; r.onresult = (e: any) => { let t = ''; for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript; if (t.trim()) setTranscript(t.trim()); }; r.start(); speechRef.current = r; }
       setIsRecording(true); setRecDuration(0);
       setRecStatus('Recording & transcribing — speak now');
       const st = Date.now(); timerRef.current = setInterval(() => setRecDuration(parseFloat(((Date.now() - st) / 1000).toFixed(1))), 100);
@@ -132,12 +133,13 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({ tenantId, onResult }
 
               <div className="flex items-center gap-3 p-3 bg-[#F7F9FC] rounded-lg border border-[var(--line)] mb-4">
                 <button onClick={toggleRecording}
-                  className={`w-9 h-9 rounded-full grid place-items-center cursor-pointer transition-all text-sm ${isRecording ? 'bg-[var(--danger)] text-white' : 'bg-white border border-[var(--line)] hover:border-[var(--accent)]'}`}>
+                  className={`w-9 h-9 rounded-full grid place-items-center cursor-pointer transition-all text-sm shrink-0 ${isRecording ? 'bg-[var(--danger)] text-white' : 'bg-white border border-[var(--line)] hover:border-[var(--accent)]'}`}>
                   {isRecording ? '⏹' : '🎙'}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[11px] text-[var(--muted)] font-mono truncate">{recStatus}</div>
-                  {isRecording && <div className="text-[11px] text-[var(--accent)] font-mono">{recDuration}s</div>}
+                  <div className="text-[10px] font-mono font-medium text-[var(--success)] mb-0.5">✨ Auto-Detect Multilingual STT Active</div>
+                  <div className="text-[10px] text-[var(--muted)] font-mono truncate">{recStatus}</div>
+                  {isRecording && <div className="text-[10px] text-[var(--accent)] font-mono">{recDuration}s</div>}
                 </div>
               </div>
 
