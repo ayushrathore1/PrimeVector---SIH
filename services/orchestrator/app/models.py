@@ -82,7 +82,7 @@ class SpoofDetectionRequest(BaseModel):
     tenant_id: str
     audio_features: List[float]
     sample_rate: int = 16000
-    feature_type: str = "wav2vec2"
+    feature_type: str = "log_mel"
 
 
 class SynthesisSignalResponse(BaseModel):

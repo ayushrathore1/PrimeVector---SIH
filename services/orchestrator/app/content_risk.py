@@ -57,120 +57,367 @@ def _failsafe(reason: str) -> ContentRiskResult:
 
 
 # ======================================================================
-# MULTILINGUAL FRAUD & INTENT TAXONOMY (ENGLISH & INDIAN LANGUAGES)
+# INTENT-AWARE FRAUD CLASSIFIER v3.0
+#
+# Architecture: Sentence-level intent classification, not keyword matching.
+#
+# The key insight: the SAME words ("OTP", "police", "transfer") appear in
+# both scam calls and legitimate conversations. What makes a scam is the
+# INTENT behind the words — demanding, threatening, impersonating — and
+# the CO-OCCURRENCE of multiple scam tactics in a single conversation.
+#
+# This classifier evaluates each sentence's grammatical structure and
+# speaker intent, then fuses sentence-level signals into a conversation-
+# level risk score.
 # ======================================================================
 
-# 1. Educational Security Awareness & Negation Patterns (False Positive Shield)
-SECURITY_WARNING_PATTERNS = [
-    r"\b(does\s*not\s*transfer|do\s*not\s*transfer|don't\s*transfer|never\s*transfer|will\s*not\s*transfer|does\s*not\s*ask|will\s*never\s*ask|never\s*ask|never\s*share|do\s*not\s*share|don't\s*share|never\s*disclose|do\s*not\s*disclose|don't\s*disclose|don't\s*give|never\s*give|do\s*not\s*give|says\s*do\s*not|advises\s*not\s*to|not\s*to\s*share|not\s*to\s*transfer|beware\s*of\s*scam|bank\s*never\s*asks|warning|alert|fraud\s*awareness|सावधान|कधीही\s*सांगू|ક્યારેય\s*આપશો)\b"
-]
+# ── Sentence-level intent markers ──────────────────────────────────────
+# These detect HOW something is said, not just WHAT is mentioned.
 
-# 2. High-Risk Credential & Remote Access Exploits (Multilingual)
-MULTILINGUAL_CREDENTIAL_PATTERNS = [
-    # English & General
-    (r"\b(otp|one\s*time\s*password|verification\s*code|auth\s*code|security\s*code|6\s*digit\s*code|read\s*out\s*the\s*code|share\s*the\s*code|give\s*me\s*the\s*code|send\s*the\s*code)\b", 0.55, "OTP Extraction Demand"),
-    (r"\b(pin|cvv|passcode|password|netbanking\s*password|aadhaar|pan\s*card|secret\s*code|login\s*credentials)\b", 0.45, "Sensitive Credential Disclosure"),
-    (r"\b(anydesk|teamviewer|rustdesk|quicksupport|screen\s*share|download\s*this\s*app|install\s*app)\b", 0.60, "Remote Access Malware / Screen Share Risk"),
+# Imperative/coercive demand markers: "give me", "you must", "do it now"
+COERCIVE_DEMAND_MARKERS = re.compile(
+    r"\b("
+    r"give\s*me|tell\s*me\s*(your|the)|share\s*(your|the|it)|"
+    r"send\s*(me|it|the)|transfer\s*(the|it|now)|"
+    r"you\s*must|you\s*have\s*to|you\s*need\s*to|"
+    r"do\s*it\s*now|do\s*as\s*i\s*say|"
+    r"read\s*out|read\s*me|"
+    r"batao|bhejo|dijiye|bataiye|do\s*abhi|"
+    r"aapo|આપો|moklo|મોકલો|pathva|पाठवा|भेजो|बताओ|"
+    r"i\s*need\s*your|i\s*want\s*your|hand\s*over|provide\s*me"
+    r")\b", re.IGNORECASE
+)
 
-    # Hindi / Hinglish / Marathi / Gujarati Transliterated & Native
-    (r"\b(ओटीपी|ओ.टी.पी|પીન|ઓટીપી|otp\s*(batao|bhejo|do|bataiye|dijiye|sanga|aapo|cheppandi|sollunga|bolun|din)|pin\s*(batao|do|aapo|sanga|cheppandi))\b", 0.55, "Multilingual OTP Demand"),
-    (r"\b(ઓટીપી|ઓ.ટી.પી|પીન|કોડ|otp\s*(aapo|batao|sanga|bolo)|code\s*aapo|aadhaar\s*card\s*batao)\b", 0.55, "Regional OTP Demand"),
-]
+# First-person authority claim: "I am from CBI", "This is police calling"
+AUTHORITY_CLAIM_MARKERS = re.compile(
+    r"\b("
+    r"i\s*am\s*(from|calling\s*from|an?\s*officer|inspector|detective)|"
+    r"this\s*is\s*(police|cbi|customs|trai|rbi|cyber\s*cell|bank|enforcement)|"
+    r"we\s*are\s*(from|investigating)|"
+    r"(police|cbi|court|customs)\s*(has|have)\s*(issued|filed|sent)|"
+    r"(warrant|summon|notice)\s*(has\s*been|is)\s*(issued|filed)|"
+    r"i\s*am\s*(police|officer|inspector|sub\s*inspector|si|dsp)|"
+    r"mai\s*(police|officer|cbi)\s*(se|hun|hoon)|"
+    r"हम\s*(पुलिस|सीबीआई|कस्टम)|"
+    r"(your|tumhara|aapka|તમારું)\s*(case|केस|file|warrant)"
+    r")\b", re.IGNORECASE
+)
 
-# 3. Digital Arrest & High-Authority Impersonation (Multilingual)
-MULTILINGUAL_AUTHORITY_PATTERNS = [
-    # English / Global
-    (r"\b(digital\s*arrest|cbi|cyber\s*crime|police|cop|detective|supreme\s*court|customs|enforcement\s*directorate|trai|rbi|cyber\s*cell|bank\s*manager|bank\s*officer|security\s*department)\b", 0.50, "Law Enforcement / Bank Authority Impersonation"),
-    (r"\b(illegal\s*parcel|mdma|drugs|confiscated|passport|money\s*laundering|police\s*case|warrant|compromised|blocked|suspended|frozen|expired|penalty|legal\s*action)\b", 0.45, "Coercive Legal Threat / Extortion"),
+# Threat/consequence markers: "or else", "will be arrested", "account will be blocked"
+THREAT_CONSEQUENCE_MARKERS = re.compile(
+    r"\b("
+    r"or\s*else|otherwise|if\s*you\s*don'?t|failing\s*which|"
+    r"(will\s*be|shall\s*be|going\s*to\s*be)\s*(arrested|blocked|frozen|suspended|seized|cancelled|jailed)|"
+    r"(arrest|block|freeze|suspend|seize|cancel|jail)\s*(you|your)|"
+    r"legal\s*(action|consequences|proceedings)\s*(will|shall)|"
+    r"fir\s*(will\s*be|has\s*been)\s*(filed|registered|lodged)|"
+    r"(giraftar|arrest)\s*(ho|hoga|honge|karenge)|"
+    r"(jail|jel)\s*(ho|ja|bhej)|"
+    r"खाता\s*(बंद|फ्रीज|ब्लॉक)|ખાતું\s*(બ્લોક|ફ્રીઝ)"
+    r")\b", re.IGNORECASE
+)
 
-    # Native Scripts
-    (r"\b(पुलिस|सीबीआई|डिजिटल\s*अरेस्ट|ट्राई|साइबर\s*सेल|पुलिस\s*केस|वारंट|जेल|પોલીસ|સીબીઆઈ|પોલીસ\s*કેસ|ખાતું\s*બ્લોક|પોલીસ|सीबीआय|खाते\s*फ्रीज)\b", 0.50, "Multilingual Authority Threat"),
-]
+# Urgency pressure markers — only when combined with demands
+URGENCY_PRESSURE_MARKERS = re.compile(
+    r"\b("
+    r"right\s*now|immediately|within\s*\d+\s*(hour|minute|min)|"
+    r"before\s*(midnight|tonight|today\s*end)|last\s*chance|"
+    r"hurry\s*up|no\s*time|running\s*out\s*of\s*time|"
+    r"don'?t\s*delay|don'?t\s*waste\s*time|asap|"
+    r"abhi|turant|jaldi|fauran|hamna\s*j|"
+    r"તરત\s*જ|હમણાં\s*જ|તાબડતોબ|"
+    r"तुरंत|अभी|फ़ौरन"
+    r")\b", re.IGNORECASE
+)
 
-# 4. Financial Coercion & Money Demands (Multilingual)
-MULTILINGUAL_FINANCIAL_PATTERNS = [
-    # English & General Money Demands
-    (r"\b(transfer|wire|send|deposit|pay|payment|remit|charge|fee)\b", 0.40, "Fund Transfer / Payment Demand"),
-    (r"\b(money|rupees|rs|dollars|amount|cash|lakh|crore|funds|balance|50000|100000|account\s*number)\b", 0.35, "Financial Demand / Money Mention"),
-    (r"\b(upi\s*pin|scan\s*qr\s*code|gpay|phonepe|paytm|bank\s*account)\b", 0.40, "Payment Channel Manipulation"),
+# High-value credential targets
+CREDENTIAL_TARGETS = re.compile(
+    r"\b("
+    r"otp|one\s*time\s*password|verification\s*code|"
+    r"cvv|pin|passcode|password|netbanking|"
+    r"aadhaar|pan\s*card|card\s*number|"
+    r"ओटीपी|ओ\.टी\.पी|પીન|ઓટીપી|"
+    r"login\s*credentials|secret\s*code|auth\s*code"
+    r")\b", re.IGNORECASE
+)
 
-    # Transliterated & Native Scripts
-    (r"\b(पैसे|पैसे\s*(भेजो|ट्रांसफर|पाठवा|दिला)|पैसे\s*टाका|paisa\s*(moklo|bhejo|pathva|transfer))\b", 0.45, "Multilingual Money Demand"),
-    (r"\b(પૈસા|પૈસા\s*(મોકલો|ટ્રાન્સફર|આપો)|rupiya\s*moklo|பணம்|panam\s*(anuppu|transfer)|dabbalu\s*(pampandi|transfer)|taka\s*(pathan|din))\b", 0.45, "Regional Money Demand"),
-]
+# Remote access tool names (always suspicious when asked to install)
+REMOTE_ACCESS_TOOLS = re.compile(
+    r"\b("
+    r"anydesk|teamviewer|rustdesk|quicksupport|"
+    r"screen\s*share|remote\s*access|"
+    r"download\s*this\s*app|install\s*(this|the)\s*app"
+    r")\b", re.IGNORECASE
+)
 
-# 5. Account Suspension & KYC Threat Tactics (Multilingual)
-MULTILINGUAL_URGENCY_PATTERNS = [
-    # English & General Urgency
-    (r"\b(immediately|urgent|urgently|right\s*now|within\s*2\s*hours|today|expiring\s*today|asap|fast|quick|hurry)\b", 0.35, "Urgency & Pressure Language"),
-    (r"\b(account\s*blocked|frozen|suspended|kyc\s*expired|update\s*kyc|electricity\s*bill|disconnection\s*tonight|part\s*time\s*job|telegram\s*task)\b", 0.40, "Urgency & Account Suspension Threat"),
+# ── Suppression patterns (reduce false positives) ─────────────────────
 
-    # Transliterated & Native Urgency
-    (r"\b(turant|abhi|hamna\s*j|lagesch|tabadtob|udane|ventane|ekhoni|2\s*(ghante|kalak|tasat|hours)|તરત\s*જ|હમણાં\s*જ|તાબડતોબ|લગેચ|તરત|અત્યારે)\b", 0.35, "Regional Urgency Tactics"),
-]
+# Advisory/educational context: "never share", "bank does not ask"
+ADVISORY_NEGATION = re.compile(
+    r"\b("
+    r"do\s*not|don'?t|never|should\s*not|shouldn'?t|must\s*not|"
+    r"will\s*never|does\s*not|beware|warning|alert|"
+    r"fraud\s*awareness|be\s*careful|be\s*cautious|"
+    r"advises?\s*not\s*to|says?\s*not\s*to|"
+    r"bank\s*never\s*asks?|rbi\s*says?|"
+    r"सावधान|कधीही\s*सांगू|ક્યારેય\s*આપશો|"
+    r"is\s*dangerous|is\s*a\s*scam|is\s*fraud"
+    r")\b", re.IGNORECASE
+)
 
-# 6. Benign Conversational Contexts (Multilingual)
-BENIGN_PATTERNS = [
-    r"\b(lunch|dinner|weather|morning\s*walk|park|restaurant|weekend|movie|game|meeting|coffee|family|vacation|project\s*proposal|timeline|budget|grocery|doctor\s*appointment|flight|hotel|interest\s*rate|balance\s*enquiry|जेवण|नाश्ता|હવામાન|ખાવાનું)\b"
-]
+# Narrative/third-person/past-tense context
+NARRATIVE_CONTEXT = re.compile(
+    r"\b("
+    r"(i|he|she|they|we)\s*(read|heard|saw|learned|was\s*told)|"
+    r"(article|news|report|story)\s*(said|about|mentioned)|"
+    r"(happened|occurred|took\s*place)|"
+    r"(was|were|had\s*been)\s*(arrested|scammed|cheated|defrauded)|"
+    r"in\s*the\s*(news|paper|media)|according\s*to|"
+    r"(someone|people|victims)\s*(got|were|have\s*been)"
+    r")\b", re.IGNORECASE
+)
+
+# Interrogative context: "what if", "how do I", "what happens"
+QUESTION_CONTEXT = re.compile(
+    r"(^\s*(what|how|why|when|where|who|can|could|should|is|are|do|does|did)\s+.+\?)|"
+    r"\b(what\s*(if|happens|should|would|do)|how\s*(do|can|should|to))\b",
+    re.IGNORECASE
+)
+
+# Benign routine banking — STRONG suppressor when no coercion is present
+ROUTINE_BANKING = re.compile(
+    r"\b("
+    r"(my|to\s*my)\s*(savings|current|checking)\s*account|"
+    r"balance\s*(enquiry|check|inquiry)|"
+    r"(check|see|view)\s*(my|the)\s*balance|"
+    r"(need|want)\s*to\s*(transfer|send|pay)\s*(to|for)\s*(my|the)|"
+    r"(emi|installment|premium|rent|salary|bill)\s*(payment|transfer|pay)|"
+    r"(interest\s*rate|loan|fixed\s*deposit|fd|rd|mutual\s*fund)|"
+    r"(how\s*much|what\s*is)\s*(my|the)\s*(balance|interest|emi)"
+    r")\b", re.IGNORECASE
+)
+
+
+def _split_sentences(text: str) -> List[str]:
+    """Split transcript into sentences for individual analysis."""
+    # Split on sentence-ending punctuation, or on long pauses / line breaks
+    raw = re.split(r'[.!?।\n]+', text)
+    # Also split on commas followed by long phrases (multi-clause sentences)
+    sentences = []
+    for s in raw:
+        s = s.strip()
+        if len(s) > 5:
+            sentences.append(s)
+    return sentences if sentences else [text.strip()]
+
+
+def _classify_sentence_intent(sentence: str) -> dict:
+    """
+    Classify a single sentence's fraud intent.
+
+    Returns a dict with per-dimension scores:
+      - coercion: is the speaker making a coercive demand?
+      - authority: is the speaker claiming to be an authority?
+      - threat: is the speaker threatening consequences?
+      - urgency: is the speaker applying time pressure?
+      - credential_target: is a sensitive credential being targeted?
+      - remote_access: is a remote access tool being pushed?
+      - suppressed: should this sentence be downweighted? (advisory/narrative/question)
+    """
+    s = sentence.strip()
+    s_lower = s.lower()
+
+    result = {
+        "coercion": 0.0,
+        "authority": 0.0,
+        "threat": 0.0,
+        "urgency": 0.0,
+        "credential_target": 0.0,
+        "remote_access": 0.0,
+        "suppressed": False,
+        "suppression_reason": "",
+    }
+
+    # Check suppression contexts FIRST
+    has_advisory = bool(ADVISORY_NEGATION.search(s_lower))
+    has_narrative = bool(NARRATIVE_CONTEXT.search(s_lower))
+    has_question = bool(QUESTION_CONTEXT.search(s))
+    has_routine = bool(ROUTINE_BANKING.search(s_lower))
+
+    # Check scam intent markers
+    has_coercion = bool(COERCIVE_DEMAND_MARKERS.search(s_lower))
+    has_authority = bool(AUTHORITY_CLAIM_MARKERS.search(s_lower))
+    has_threat = bool(THREAT_CONSEQUENCE_MARKERS.search(s_lower))
+    has_urgency = bool(URGENCY_PRESSURE_MARKERS.search(s_lower))
+    has_credential = bool(CREDENTIAL_TARGETS.search(s_lower))
+    has_remote = bool(REMOTE_ACCESS_TOOLS.search(s_lower))
+
+    # Suppression: if advisory/negation present WITHOUT coercion → suppress
+    if has_advisory and not has_coercion and not has_threat:
+        result["suppressed"] = True
+        result["suppression_reason"] = "advisory/warning context"
+        return result
+
+    if has_narrative and not has_coercion:
+        result["suppressed"] = True
+        result["suppression_reason"] = "narrative/third-person context"
+        return result
+
+    if has_question and not has_coercion and not has_threat:
+        result["suppressed"] = True
+        result["suppression_reason"] = "interrogative context"
+        return result
+
+    if has_routine and not has_coercion and not has_threat and not has_authority:
+        result["suppressed"] = True
+        result["suppression_reason"] = "routine banking operation"
+        return result
+
+    # Score each intent dimension
+    # Coercion + credential target = strong scam signal
+    if has_coercion and has_credential:
+        result["coercion"] = 0.85
+        result["credential_target"] = 0.90
+    elif has_coercion:
+        result["coercion"] = 0.50
+    if has_credential and not has_coercion:
+        # Credential mentioned without coercion — could be legitimate context
+        result["credential_target"] = 0.25
+
+    # Authority claim (first-person impersonation)
+    if has_authority:
+        result["authority"] = 0.70 if has_coercion or has_threat else 0.30
+
+    # Threats/consequences
+    if has_threat:
+        result["threat"] = 0.75 if has_authority else 0.45
+
+    # Urgency — only meaningful when combined with coercion or threats
+    if has_urgency:
+        result["urgency"] = 0.65 if (has_coercion or has_threat) else 0.15
+
+    # Remote access tools — always suspicious when being pushed
+    if has_remote:
+        result["remote_access"] = 0.80 if has_coercion else 0.50
+
+    return result
 
 
 def analyze_transcript_multilingual(transcript: str) -> Tuple[float, float, str]:
     """
-    Multilingual Open-Source NLP Fraud Classifier.
-    Evaluates English, Hindi, Gujarati, Marathi, Tamil, Telugu, Bengali, Kannada, Malayalam.
+    Intent-Aware Multilingual Fraud Classifier v3.0.
+
+    Architecture:
+      1. Split transcript into sentences
+      2. Classify each sentence's INTENT (coercion, authority, threat, urgency)
+      3. Fuse sentence-level signals into conversation-level risk
+      4. Apply scam-script fingerprint detection (sequential pattern)
+
+    Key design principle: a word like "OTP" or "police" alone does NOT
+    produce a high score. What triggers high risk is the COMBINATION of:
+      - A coercive demand ("give me", "you must")
+      - Targeting sensitive credentials ("your OTP", "your PIN")
+      - Authority impersonation ("I am from CBI")
+      - Threat of consequences ("or you will be arrested")
+      - Time pressure ("right now", "within 2 hours")
+
+    Evaluates English, Hindi, Gujarati, Marathi, Tamil, Telugu, Bengali,
+    Kannada, Malayalam (via transliterated patterns).
     """
     text = transcript.strip()
-    text_lower = text.lower()
+    if not text:
+        return 0.0, 0.95, "Empty transcript"
 
-    # Step 1: False Positive Shield (Educational / Bank Warnings / Negation Clauses)
-    is_educational_warning = any(re.search(p, text_lower) for p in SECURITY_WARNING_PATTERNS)
-    if is_educational_warning:
-        # Check if there is an active scam demand vs educational advice
-        is_active_scam_demand = bool(re.search(r"\b(transfer\s*50000|pay\s*\d+|send\s*money\s*now|give\s*otp\s*now)\b", text_lower))
-        if not is_active_scam_demand:
-            return 0.0, 0.98, "Educational security warning / advisory statement detected (No scam intent)"
+    sentences = _split_sentences(text)
 
-    detected_indicators: List[str] = []
-    category_weights: List[float] = []
+    # Classify each sentence
+    sentence_intents = [_classify_sentence_intent(s) for s in sentences]
 
-    # Step 2: Evaluate Multilingual Fraud Categories
-    all_categories = [
-        ("Credential Risk", MULTILINGUAL_CREDENTIAL_PATTERNS),
-        ("Authority Coercion", MULTILINGUAL_AUTHORITY_PATTERNS),
-        ("Financial Transfer", MULTILINGUAL_FINANCIAL_PATTERNS),
-        ("Urgency & Threat", MULTILINGUAL_URGENCY_PATTERNS),
-    ]
+    # Aggregate across all non-suppressed sentences
+    active_intents = [si for si in sentence_intents if not si["suppressed"]]
+    suppression_reasons = [si["suppression_reason"] for si in sentence_intents if si["suppressed"]]
 
-    for cat_name, patterns in all_categories:
-        for pattern, weight, label in patterns:
-            if re.search(pattern, text_lower):
-                category_weights.append(weight)
-                if label not in detected_indicators:
-                    detected_indicators.append(label)
+    # If ALL sentences were suppressed → it's advisory/benign
+    if not active_intents:
+        reason = "All content is advisory, narrative, or routine"
+        if suppression_reasons:
+            reason += f" ({', '.join(set(suppression_reasons))})"
+        return 0.0, 0.95, reason
 
-    # Step 3: Handle Benign or Non-Scam Conversations
-    if not detected_indicators:
-        is_benign = any(re.search(p, text_lower) for p in BENIGN_PATTERNS)
-        score = 0.05 if ("account" in text_lower or "money" in text_lower or "खाता" in text_lower or "ખાતું" in text_lower) else 0.0
-        reason = "Clean conversation — no financial scam or fraud intent detected"
-        return score, 0.95, reason
+    # Aggregate max per dimension across active sentences
+    max_coercion = max(si["coercion"] for si in active_intents)
+    max_authority = max(si["authority"] for si in active_intents)
+    max_threat = max(si["threat"] for si in active_intents)
+    max_urgency = max(si["urgency"] for si in active_intents)
+    max_credential = max(si["credential_target"] for si in active_intents)
+    max_remote = max(si["remote_access"] for si in active_intents)
 
-    # Step 4: Calculate Weighted Non-Linear Risk Score
-    base_score = max(category_weights) if category_weights else 0.0
+    # ── Scam Script Fingerprint Detection ─────────────────────────────
+    # A real scam call exhibits a PATTERN: authority → threat → demand
+    # Count how many DISTINCT scam tactics appear
+    active_tactics = []
+    if max_coercion >= 0.40:
+        active_tactics.append("coercive demand")
+    if max_authority >= 0.40:
+        active_tactics.append("authority impersonation")
+    if max_threat >= 0.40:
+        active_tactics.append("threat/consequence")
+    if max_urgency >= 0.40:
+        active_tactics.append("urgency pressure")
+    if max_credential >= 0.40:
+        active_tactics.append("credential targeting")
+    if max_remote >= 0.40:
+        active_tactics.append("remote access push")
 
-    # Multiplier Boost for multi-category matching
-    if len(detected_indicators) >= 3:
-        final_score = min(1.0, base_score + 0.45)
-    elif len(detected_indicators) == 2:
-        final_score = min(1.0, base_score + 0.30)
+    n_tactics = len(active_tactics)
+
+    # ── Risk Score Calculation ────────────────────────────────────────
+    # Primary signal: strongest single dimension
+    dimension_scores = [max_coercion, max_authority, max_threat,
+                        max_urgency, max_credential, max_remote]
+    primary_score = max(dimension_scores)
+
+    # Scam-script co-occurrence boost (requires multiple distinct tactics)
+    if n_tactics >= 4:
+        # Classic scam script: authority + threat + demand + urgency
+        coscript_boost = 0.30
+    elif n_tactics >= 3:
+        # Strong multi-tactic pattern
+        coscript_boost = 0.20
+    elif n_tactics >= 2:
+        # Two tactics — moderate concern
+        coscript_boost = 0.10
     else:
-        final_score = min(1.0, base_score)
+        # Single tactic — could be legitimate context
+        coscript_boost = 0.0
 
-    final_score = round(final_score, 2)
-    reason = f"Multilingual Scam Indicators: {', '.join(detected_indicators)}"
+    # Final score: primary signal + co-occurrence boost, capped at 1.0
+    final_score = min(1.0, primary_score + coscript_boost)
 
-    return final_score, 0.95, reason
+    # Apply partial suppression: if some sentences were suppressed,
+    # slightly reduce confidence (mixed educational + suspicious content)
+    n_suppressed = len(suppression_reasons)
+    n_total = len(sentence_intents)
+    suppression_ratio = n_suppressed / max(n_total, 1)
+
+    # If >50% of sentences are advisory/benign, dampen the score
+    if suppression_ratio > 0.5 and final_score < 0.70:
+        final_score *= (1.0 - suppression_ratio * 0.4)
+
+    final_score = round(max(0.0, min(1.0, final_score)), 2)
+
+    # Build explanation
+    if n_tactics == 0:
+        reason = "No active scam intent detected"
+        if suppression_reasons:
+            reason += f" (suppressed: {', '.join(set(suppression_reasons))})"
+    else:
+        reason = f"Active scam tactics ({n_tactics}): {', '.join(active_tactics)}"
+
+    # Confidence: high when we have clear evidence, lower when ambiguous
+    confidence = 0.95 if n_tactics >= 2 else (0.85 if n_tactics == 1 else 0.90)
+
+    return final_score, confidence, reason
 
 
 async def assess_content_risk(

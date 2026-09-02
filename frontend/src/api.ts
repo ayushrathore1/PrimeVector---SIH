@@ -368,15 +368,55 @@ export async function getAlertAuditLog(tenantId: string): Promise<{ entries: Ale
   return res.json();
 }
 
-// ─── Audio Utilities ────────────────────────────────────────────────
-/** Generate a 1s 440Hz test tone as base64 16-bit PCM (fallback when no mic). */
+/** Generate a 1s speech-like test signal as base64 16-bit PCM.
+ *
+ * Produces a formant-structured signal with:
+ * - F0 (fundamental) ~120 Hz with ±2% micro-jitter (human pitch perturbation)
+ * - F1 formant ~500 Hz and F2 formant ~1500 Hz (vowel-like spectral shape)
+ * - Syllabic amplitude modulation at ~4 Hz (natural speech rhythm)
+ * - Band-limited noise floor (breath noise component)
+ *
+ * This gives the spoof detector meaningful spectral structure to analyze,
+ * unlike a pure sine wave which produces degenerate scores.
+ */
 export function generateTestTone(): string {
   const sampleRate = 16000;
   const nSamples = sampleRate; // 1 second
   const pcm16 = new Int16Array(nSamples);
+
   for (let i = 0; i < nSamples; i++) {
-    pcm16[i] = Math.floor(32767 * 0.8 * Math.sin((2 * Math.PI * 440 * i) / sampleRate));
+    const t = i / sampleRate;
+
+    // F0 with natural micro-jitter (±2% pitch perturbation)
+    const jitter = 1.0 + 0.02 * Math.sin(2 * Math.PI * 5.5 * t + 1.3)
+                        + 0.01 * Math.sin(2 * Math.PI * 11.3 * t + 0.7);
+    const f0 = 120.0 * jitter;
+
+    // Fundamental + harmonics (glottal pulse approximation)
+    const fundamental = Math.sin(2 * Math.PI * f0 * t);
+    const harmonic2 = 0.6 * Math.sin(2 * Math.PI * 2 * f0 * t);
+    const harmonic3 = 0.3 * Math.sin(2 * Math.PI * 3 * f0 * t);
+    const harmonic4 = 0.15 * Math.sin(2 * Math.PI * 4 * f0 * t);
+
+    // Formant resonances (simplified vowel /a/ shape)
+    const f1 = 0.4 * Math.sin(2 * Math.PI * 500 * t);  // F1 ~500 Hz
+    const f2 = 0.2 * Math.sin(2 * Math.PI * 1500 * t); // F2 ~1500 Hz
+    const f3 = 0.08 * Math.sin(2 * Math.PI * 2500 * t); // F3 ~2500 Hz
+
+    // Syllabic amplitude envelope (~4 Hz modulation = natural speech rhythm)
+    const syllabicEnv = 0.6 + 0.4 * Math.sin(2 * Math.PI * 4.0 * t + 0.5);
+
+    // Breath noise component (pseudo-random, band-limited)
+    const noise = 0.03 * (Math.sin(2 * Math.PI * 3200 * t + i * 0.1)
+                        + Math.sin(2 * Math.PI * 4800 * t + i * 0.3)) * 0.5;
+
+    // Mix all components
+    const mixed = (fundamental + harmonic2 + harmonic3 + harmonic4 + f1 + f2 + f3 + noise)
+                  * syllabicEnv * 0.35; // scale to avoid clipping
+
+    pcm16[i] = Math.floor(Math.max(-32767, Math.min(32767, mixed * 32767)));
   }
+
   const bytes = new Uint8Array(pcm16.buffer);
   let binary = '';
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);

@@ -35,8 +35,8 @@ class SpoofDetectionRequest(BaseModel):
         description="Sample rate of the original audio, for metadata/routing",
     )
     feature_type: str = Field(
-        default="wav2vec2",
-        description="Type of features provided, for model compatibility checks",
+        default="log_mel",
+        description="Type of features provided (log_mel or wav2vec2), for model compatibility checks",
     )
 
 

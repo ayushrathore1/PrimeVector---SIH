@@ -158,6 +158,31 @@ class PipelineClient:
             logger.exception("enrollment-service call failed")
             return None
 
+    async def match_speaker(
+        self,
+        tenant_id: str,
+        subject_id: str,
+        live_embedding: List[float],
+    ) -> Optional[SignalIn]:
+        """POST /v1/tenants/{id}/subjects/{id}/match -> SignalIn or None."""
+        try:
+            resp = await self._client.post(
+                f"{self.enrollment_url}/v1/tenants/{tenant_id}"
+                f"/subjects/{subject_id}/match",
+                json={"live_embedding": live_embedding},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return SignalIn(
+                score=data.get("score", 0.5),
+                confidence=data.get("confidence", 0.0),
+                available=data.get("available", False),
+                detail=data.get("detail", ""),
+            )
+        except Exception:
+            logger.exception("enrollment-service match call failed")
+            return None
+
     # ------------------------------------------------------------------
     # Step 3: Risk fusion
     # ------------------------------------------------------------------

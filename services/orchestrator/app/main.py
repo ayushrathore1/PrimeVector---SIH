@@ -184,12 +184,22 @@ async def process_pipeline(req: PipelineRequest) -> PipelineResponse:
 
     # -- Build speaker-match signal --
     if enrollment_result is not None and enrollment_result.status == "ENROLLED":
-        speaker_match_signal = SignalIn(
-            score=0.0,
-            confidence=1.0,
-            available=True,
-            detail=f"enrolled voiceprint {enrollment_result.voiceprint_id}",
+        # Actually compare live embedding against enrolled voiceprint
+        match_result = await client.match_speaker(
+            tenant_id=req.tenant_id,
+            subject_id=req.subject_id,
+            live_embedding=extraction.speaker_embedding,
         )
+        if match_result is not None:
+            speaker_match_signal = match_result
+        else:
+            # Match call failed — use degraded signal with enrollment context
+            speaker_match_signal = SignalIn(
+                score=0.5,
+                confidence=0.0,
+                available=False,
+                detail=f"match call failed for voiceprint {enrollment_result.voiceprint_id}",
+            )
     else:
         detail = "enrollment-service unreachable"
         if enrollment_result is not None:

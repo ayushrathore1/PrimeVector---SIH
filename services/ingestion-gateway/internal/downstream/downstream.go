@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	pb "voiceintegrity/ingestion-gateway/pkg/pb"
@@ -105,11 +104,12 @@ type MatchSpeakerRequestPayload struct {
 }
 
 type RiskFusionRequestPayload struct {
-	CallSessionID      string        `json:"call_session_id"`
-	TenantID           string        `json:"tenant_id"`
-	SynthesisSignal    SignalPayload `json:"synthesis_signal"`
-	SpeakerMatchSignal SignalPayload `json:"speaker_match_signal"`
-	ContextualSignal   SignalPayload `json:"contextual_signal"`
+	CallSessionID      string         `json:"call_session_id"`
+	TenantID           string         `json:"tenant_id"`
+	SynthesisSignal    SignalPayload  `json:"synthesis_signal"`
+	SpeakerMatchSignal SignalPayload  `json:"speaker_match_signal"`
+	ContextualSignal   SignalPayload  `json:"contextual_signal"`
+	ContentRiskSignal  *SignalPayload `json:"content_risk_signal,omitempty"`
 }
 
 type RiskFusionResponsePayload struct {
@@ -269,6 +269,17 @@ func (c *HTTPDownstreamClient) ProcessAudioChunk(ctx context.Context, chunk *pb.
 		SpeakerMatchSignal: speakerMatchSignal,
 		ContextualSignal:   contextualSignal,
 	}
+
+	// Forward content_risk_signal if contextual detail contains transcript analysis
+	if chunk.ContextualSignal != nil && chunk.ContextualSignal.Available {
+		crs := SignalPayload{
+			Score:      float64(chunk.ContextualSignal.Score),
+			Confidence: float64(chunk.ContextualSignal.Confidence),
+			Available:  chunk.ContextualSignal.Available,
+			Detail:     chunk.ContextualSignal.Detail,
+		}
+		fusionReqPayload.ContentRiskSignal = &crs
+	}
 	fusionBody, err := json.Marshal(fusionReqPayload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal fusion payload: %w", err)
@@ -366,7 +377,7 @@ func (cb *CircuitBreaker) Allow() bool {
 		cb.mu.Lock()
 		defer cb.mu.Unlock()
 		cb.isOpen = false
-		atomic.StoreInt64(&cb.failures, 0)
+		cb.failures = 0
 		return true
 	}
 	return false

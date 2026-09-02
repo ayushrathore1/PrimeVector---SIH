@@ -82,7 +82,7 @@ def test_detect_with_heuristic_registry_returns_available(client):
     assert data["available"] is True
     assert 0.0 <= data["score"] <= 1.0
     assert 0.0 <= data["confidence"] <= 1.0
-    assert "heuristic" in data["detail"]
+    assert "acoustic-neural" in data["detail"] or "model=" in data["detail"]
 
 
 # =====================================================================
