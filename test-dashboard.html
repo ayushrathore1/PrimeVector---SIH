@@ -476,7 +476,7 @@ async function toggleRecording() {
 
     mediaRecorder.start();
 
-    // Live Web Speech Recognition with en-IN locale (natively handles English, Hinglish, & Indian code-switching without corrupting English text)
+    // Live Web Speech Recognition with transcript persistence across pauses
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       speechRecognizer = new SpeechRecognition();
@@ -484,16 +484,29 @@ async function toggleRecording() {
       speechRecognizer.interimResults = true;
       speechRecognizer.lang = 'en-IN'; // Indian English / Hinglish speech locale
 
-      let liveTranscript = '';
+      let finalTranscript = '';
       speechRecognizer.onresult = (event) => {
-        liveTranscript = '';
+        let interimTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          liveTranscript += event.results[i][0].transcript;
+          const chunk = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += chunk + ' ';
+          } else {
+            interimTranscript += chunk;
+          }
         }
-        if (liveTranscript.trim()) {
-          document.getElementById('transcript').value = liveTranscript.trim();
+        const combined = (finalTranscript + ' ' + interimTranscript).trim().replace(/\s+/g, ' ');
+        if (combined) {
+          document.getElementById('transcript').value = combined;
         }
       };
+
+      speechRecognizer.onend = () => {
+        if (isRecording) {
+          try { speechRecognizer.start(); } catch (e) {}
+        }
+      };
+
       speechRecognizer.start();
     }
 

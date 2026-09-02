@@ -66,7 +66,33 @@ export const PipelinePage: React.FC<PipelinePageProps> = ({ tenantId, onResult }
       };
       mr.start();
       const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SR) { const r = new SR(); r.continuous = true; r.interimResults = true; r.lang = 'en-IN'; r.onresult = (e: any) => { let t = ''; for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript; if (t.trim()) setTranscript(t.trim()); }; r.start(); speechRef.current = r; }
+      if (SR) {
+        const r = new SR();
+        r.continuous = true;
+        r.interimResults = true;
+        r.lang = 'en-IN';
+        let accumulatedFinal = '';
+        r.onresult = (e: any) => {
+          let currentInterim = '';
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            const chunk = e.results[i][0].transcript;
+            if (e.results[i].isFinal) {
+              accumulatedFinal += chunk + ' ';
+            } else {
+              currentInterim += chunk;
+            }
+          }
+          const fullText = (accumulatedFinal + ' ' + currentInterim).trim().replace(/\s+/g, ' ');
+          if (fullText) setTranscript(fullText);
+        };
+        r.onend = () => {
+          if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            try { r.start(); } catch {}
+          }
+        };
+        r.start();
+        speechRef.current = r;
+      }
       setIsRecording(true); setRecDuration(0);
       setRecStatus('Recording & transcribing — speak now');
       const st = Date.now(); timerRef.current = setInterval(() => setRecDuration(parseFloat(((Date.now() - st) / 1000).toFixed(1))), 100);
