@@ -498,6 +498,12 @@ async function toggleRecording() {
         const combined = (finalTranscript + ' ' + interimTranscript).trim().replace(/\s+/g, ' ');
         if (combined) {
           document.getElementById('transcript').value = combined;
+          
+          // REAL-TIME AUTO-DETECTION: Run pipeline automatically as user speaks
+          clearTimeout(autoPipelineTimer);
+          autoPipelineTimer = setTimeout(() => {
+            runPipeline(true); // Automatic background execution
+          }, 1000); // Trigger 1 second after last spoken word
         }
       };
 
@@ -513,7 +519,7 @@ async function toggleRecording() {
     btn.classList.add('recording');
     btn.textContent = '⏹';
     recordingStart = Date.now();
-    status.textContent = '🎙️ Recording & Live Transcribing... Speak into your mic!';
+    status.textContent = '🎙️ LIVE REAL-TIME SCAM MONITORING ACTIVE... Speak into your mic!';
 
     durationInterval = setInterval(() => {
       const elapsed = ((Date.now() - recordingStart) / 1000).toFixed(1);
@@ -524,6 +530,9 @@ async function toggleRecording() {
     status.textContent = `❌ Mic error: ${err.message}. Using test tone instead.`;
   }
 }
+
+// Global timer handle for real-time automatic pipeline execution
+let autoPipelineTimer = null;
 
 // Generate natural human speech formant tone as fallback for text presets
 function generateTestTone() {
@@ -570,20 +579,22 @@ function generateTestTone() {
   return btoa(binary);
 }
 
-// ---- RUN PIPELINE ----
-async function runPipeline() {
+// ---- RUN PIPELINE (supports isAuto for silent background real-time updates) ----
+async function runPipeline(isAuto = false) {
   const btn = document.getElementById('runBtn');
   const transcript = document.getElementById('transcript').value.trim();
   const contextScore = parseFloat(document.getElementById('contextScore').value) || 0.3;
   const tenantId = document.getElementById('tenantId').value || 'qa-tenant';
 
   if (!transcript) {
-    alert('Please enter a transcript (or record your voice / click a preset)');
+    if (!isAuto) alert('Please enter a transcript (or record your voice / click a preset)');
     return;
   }
 
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Running...';
+  if (!isAuto) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Running...';
+  }
 
   const audioBase64 = recordedBase64 || generateTestTone();
   const sessionId = `dashboard-${Date.now()}`;
@@ -609,13 +620,17 @@ async function runPipeline() {
     const data = await res.json();
     showResults(data);
   } catch (err) {
-    document.getElementById('resultsArea').style.display = 'block';
-    document.getElementById('signalBars').innerHTML = `<div style="color:var(--red)">❌ Error: ${err.message}</div>`;
-    document.getElementById('verdictBox').innerHTML = '';
+    if (!isAuto) {
+      document.getElementById('resultsArea').style.display = 'block';
+      document.getElementById('signalBars').innerHTML = `<div style="color:var(--red)">❌ Error: ${err.message}</div>`;
+      document.getElementById('verdictBox').innerHTML = '';
+    }
   }
 
-  btn.disabled = false;
-  btn.innerHTML = '▶ Run Pipeline';
+  if (!isAuto) {
+    btn.disabled = false;
+    btn.innerHTML = '▶ Run Pipeline';
+  }
 }
 
 function showResults(data) {
