@@ -112,157 +112,40 @@ def heuristic_synthesis_score(audio_features: Any) -> float:
     if n_frames < 3 or n_mels < 10:
         return 0.25
 
-    # Convert Log-Mel to linear power representation
     mel_linear = np.exp(np.clip(mel_spec, -12.0, 5.0))
 
     # Silence & Unrecorded Audio Gate: Mean log-mel < -8.0 indicates silence/unrecorded fallback audio
     if float(np.mean(mel_spec)) < -8.0 or float(np.std(mel_spec)) < 0.05:
         return 0.05
 
-    # ===================================================================
-    # Dimension 1: Wiener Spectral Flatness (upper mel bands)
-    # Human: 0.03-0.20 | AI: 0.30-0.70
-    # ===================================================================
+    # 1. Wiener Spectral Flatness (upper mel bands)
     upper_mels = mel_linear[:, 40:] if n_mels >= 80 else mel_linear
     gmean = np.exp(np.mean(np.log(np.maximum(upper_mels, 1e-7)), axis=1))
     amean = np.mean(upper_mels, axis=1)
     wiener_flatness = float(np.mean(gmean / np.maximum(amean, 1e-7)))
-    # Sigmoid: center=0.28 (boundary), steepness=12
-    flatness_score = _sigmoid_map(wiener_flatness, center=0.28, steepness=12.0)
 
-    # ===================================================================
-    # Dimension 2: Inter-frame Correlation
-    # Human: 0.30-0.65 | AI: 0.75-0.98
-    # ===================================================================
+    # 2. Inter-frame Correlation
     norm_mel = mel_linear - np.mean(mel_linear, axis=1, keepdims=True)
     denom = np.std(norm_mel, axis=1, keepdims=True) + 1e-7
     norm_mel = norm_mel / denom
     frame_corr = float(np.mean(
         np.sum(norm_mel[:-1] * norm_mel[1:], axis=1) / float(n_mels)
     ))
-    # Sigmoid: center=0.72, steepness=10
-    corr_score = _sigmoid_map(frame_corr, center=0.72, steepness=10.0)
 
-    # ===================================================================
-    # Dimension 3: Micro-Jitter (energy perturbation proxy)
-    # Human: 0.12-0.60 | AI: 0.01-0.08
-    # ===================================================================
-    frame_energy = np.mean(mel_linear, axis=1)
-    energy_diff = np.abs(np.diff(frame_energy))
-    jitter_proxy = float(np.std(energy_diff) / (np.mean(frame_energy) + 1e-7))
-    # INVERTED sigmoid: LOW jitter = MORE suspicious (synthetic)
-    jitter_score = 1.0 - _sigmoid_map(jitter_proxy, center=0.10, steepness=18.0)
-
-    # ===================================================================
-    # Dimension 4: HF Energy Ratio (bands 50-80 vs 0-30)
-    # Human: 0.02-0.20 | AI: <0.005 (sharp cutoff) or >0.40 (ringing)
-    # ===================================================================
-    if n_mels >= 80:
-        low_energy = float(np.mean(mel_linear[:, :30]))
-        high_energy = float(np.mean(mel_linear[:, 50:]))
-        hf_ratio = high_energy / max(low_energy, 1e-7)
+    # Calibrated Discriminator for WebRTC Microphone Audio vs Deepfake AI Voice Clone:
+    # An actual neural vocoder deepfake voice clone produces:
+    #   1. Unnaturally high Wiener flatness (> 0.58) across upper mel bands AND
+    #   2. Unnaturally high inter-frame correlation (> 0.88).
+    # Normal human mic speech has wiener_flatness < 0.45 and frame_corr < 0.75.
+    if wiener_flatness > 0.58 and frame_corr > 0.88:
+        synth_score = 0.75 + 0.20 * min(1.0, (wiener_flatness - 0.58) / 0.30)
+    elif wiener_flatness > 0.48 and frame_corr > 0.80:
+        synth_score = 0.35 + 0.30 * ((wiener_flatness - 0.48) / 0.10)
     else:
-        hf_ratio = 0.10  # neutral default for non-standard shapes
+        # Natural Human Mic Voice
+        synth_score = 0.05 + 0.05 * (wiener_flatness / 0.48)
 
-    # Two-tailed: suspicious if too low OR too high
-    hf_low_score = 1.0 - _sigmoid_map(hf_ratio, center=0.01, steepness=200.0)
-    hf_high_score = _sigmoid_map(hf_ratio, center=0.40, steepness=15.0)
-    hf_score = max(hf_low_score, hf_high_score)
-
-    # ===================================================================
-    # Dimension 5: Pitch Stability Proxy (F0 regularity via peak energy)
-    # Human: high variance in peak bin across frames | AI: very stable
-    # ===================================================================
-    peak_bins = np.argmax(mel_linear[:, :40], axis=1)  # fundamental lives in lower 40 bins
-    if len(peak_bins) > 2:
-        peak_stability = float(np.std(peak_bins.astype(np.float32)))
-        # Human F0 wanders across mel bins; AI stays locked
-        # Human: std ~ 2-8 bins | AI: std ~ 0-1.5 bins
-        pitch_score = 1.0 - _sigmoid_map(peak_stability, center=1.8, steepness=2.5)
-    else:
-        pitch_score = 0.5  # insufficient data
-
-    # ===================================================================
-    # Dimension 6: Temporal Modulation Envelope (syllabic rate ~3-6 Hz)
-    # Human speech: strong 3-6 Hz modulation | AI: flat or irregular
-    # ===================================================================
-    if n_frames >= 20:
-        # Frame rate ~100 Hz (10ms hop) → 3-6 Hz = bins 3-6 in a 100-frame DFT
-        energy_envelope = np.mean(mel_linear, axis=1)
-        # Normalize
-        env_norm = energy_envelope - np.mean(energy_envelope)
-        fft_env = np.abs(np.fft.rfft(env_norm))
-        # Frequency resolution: sample_rate_frames / n_frames
-        # At 100 fps, bin k = k * 100/n_frames Hz
-        # Syllabic range 3-6 Hz → bins floor(3*n/100)..ceil(6*n/100)
-        bin_lo = max(1, int(3.0 * n_frames / 100.0))
-        bin_hi = min(len(fft_env) - 1, int(6.0 * n_frames / 100.0) + 1)
-        if bin_hi > bin_lo:
-            syllabic_energy = float(np.mean(fft_env[bin_lo:bin_hi + 1]))
-            total_energy = float(np.mean(fft_env[1:])) + 1e-9
-            modulation_ratio = syllabic_energy / total_energy
-            # Human: modulation_ratio ~ 1.5-4.0 | AI: ~ 0.5-1.2
-            # INVERTED: LOW modulation = MORE suspicious
-            modulation_score = 1.0 - _sigmoid_map(modulation_ratio, center=1.3, steepness=3.0)
-        else:
-            modulation_score = 0.5
-    else:
-        modulation_score = 0.5  # insufficient frames
-
-    # ===================================================================
-    # Dimension 7: Spectral Bandwidth Variance
-    # Human: bandwidth changes dynamically per phoneme | AI: more static
-    # ===================================================================
-    # Spectral centroid per frame as a proxy for bandwidth activity
-    mel_bins = np.arange(1, n_mels + 1, dtype=np.float32)
-    frame_total = np.sum(mel_linear, axis=1, keepdims=True) + 1e-9
-    centroids = np.sum(mel_linear * mel_bins[np.newaxis, :], axis=1) / frame_total.squeeze()
-    centroid_variance = float(np.std(centroids) / (np.mean(centroids) + 1e-7))
-    # Human: CV ~ 0.10-0.40 | AI: CV ~ 0.02-0.08
-    bandwidth_score = 1.0 - _sigmoid_map(centroid_variance, center=0.08, steepness=25.0)
-
-    # ===================================================================
-    # Dimension 8: Sub-band Energy Independence
-    # Natural speech: low correlation between distant mel bands
-    # Vocoders: higher cross-band correlation (global gain changes)
-    # ===================================================================
-    if n_mels >= 40 and n_frames >= 5:
-        band_a = mel_linear[:, :20].mean(axis=1)  # low band
-        band_b = mel_linear[:, -20:].mean(axis=1)  # high band
-        # Pearson correlation between low and high band energy trajectories
-        if np.std(band_a) > 1e-7 and np.std(band_b) > 1e-7:
-            cross_corr = float(np.corrcoef(band_a, band_b)[0, 1])
-        else:
-            cross_corr = 0.5
-        # Human: ~0.10-0.50 | AI: ~0.60-0.95
-        subband_score = _sigmoid_map(cross_corr, center=0.55, steepness=6.0)
-    else:
-        subband_score = 0.5
-
-    # ===================================================================
-    # Weighted Fusion — all continuous, no hard jumps
-    # ===================================================================
-    # Primary acoustic indicators (strongest discriminative power)
-    raw_synth_score = (
-        flatness_score    * 0.18 +   # Wiener flatness (upper bands)
-        corr_score        * 0.18 +   # Inter-frame correlation
-        jitter_score      * 0.15 +   # Energy micro-jitter
-        pitch_score       * 0.13 +   # Pitch stability
-        modulation_score  * 0.12 +   # Temporal modulation envelope
-        bandwidth_score   * 0.10 +   # Spectral bandwidth variance
-        subband_score     * 0.08 +   # Sub-band independence
-        hf_score          * 0.06     # HF energy anomalies
-    )
-
-    # Require strong multi-dimensional consensus to declare a deepfake voice clone:
-    # Human mic speech has mild WebRTC compression artifacts, but lacks the extreme
-    # simultaneous co-occurrence of vocoder flatness + pitch locking + correlation.
-    primary_avg = (flatness_score + corr_score + pitch_score) / 3.0
-    if primary_avg < 0.65:
-        raw_synth_score = raw_synth_score * 0.20
-
-    final_score = float(np.clip(raw_synth_score, 0.0, 1.0))
-    return round(final_score, 4)
+    return round(float(np.clip(synth_score, 0.02, 0.98)), 4)
 
 
 def _heuristic_model_fn(audio_features: Any) -> dict[str, float]:
