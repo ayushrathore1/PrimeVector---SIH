@@ -243,7 +243,6 @@ def heuristic_synthesis_score(audio_features: Any) -> float:
     # Weighted Fusion — all continuous, no hard jumps
     # ===================================================================
     # Primary acoustic indicators (strongest discriminative power)
-    # Secondary indicators provide confirming evidence
     raw_synth_score = (
         flatness_score    * 0.18 +   # Wiener flatness (upper bands)
         corr_score        * 0.18 +   # Inter-frame correlation
@@ -254,6 +253,13 @@ def heuristic_synthesis_score(audio_features: Any) -> float:
         subband_score     * 0.08 +   # Sub-band independence
         hf_score          * 0.06     # HF energy anomalies
     )
+
+    # Require strong multi-dimensional consensus to declare a deepfake voice clone:
+    # Human mic speech has mild WebRTC compression artifacts, but lacks the extreme
+    # simultaneous co-occurrence of vocoder flatness + pitch locking + correlation.
+    primary_avg = (flatness_score + corr_score + pitch_score) / 3.0
+    if primary_avg < 0.65:
+        raw_synth_score = raw_synth_score * 0.20
 
     final_score = float(np.clip(raw_synth_score, 0.0, 1.0))
     return round(final_score, 4)

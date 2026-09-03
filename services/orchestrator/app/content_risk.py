@@ -252,10 +252,10 @@ def _classify_sentence_intent(sentence: str) -> dict:
     has_credential = bool(CREDENTIAL_TARGETS.search(s_lower))
     has_remote = bool(REMOTE_ACCESS_TOOLS.search(s_lower))
 
-    # Suppression: if advisory/negation present WITHOUT coercion → suppress
-    if has_advisory and not has_coercion and not has_threat:
+    # Suppression: if advisory/negation present ("do not share", "never tell"), it negates any demand!
+    if has_advisory:
         result["suppressed"] = True
-        result["suppression_reason"] = "advisory/warning context"
+        result["suppression_reason"] = "advisory/warning context (negated demand)"
         return result
 
     if has_narrative and not has_coercion:
