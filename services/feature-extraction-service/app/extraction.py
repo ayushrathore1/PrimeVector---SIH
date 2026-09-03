@@ -5,11 +5,30 @@ from app.telemetry import get_tracer
 
 tracer = get_tracer()
 
-def decode(audio_bytes: bytes, sample_rate: int, channels: int) -> np.ndarray:
+import base64
+
+def decode(audio_bytes: bytes | str, sample_rate: int, channels: int) -> np.ndarray:
     with tracer.start_as_current_span('feature_extraction.decode'):
         if not audio_bytes:
             raise ValueError("Empty audio input")
         
+        # Decode base64 if string or ASCII base64 bytes
+        if isinstance(audio_bytes, str):
+            try:
+                audio_bytes = base64.b64decode(audio_bytes)
+            except Exception as e:
+                raise ValueError("Invalid base64 string") from e
+        elif isinstance(audio_bytes, bytes):
+            # If the bytes are base64-encoded ASCII (e.g. b"AAAA..."), decode to raw PCM
+            try:
+                # Check if payload consists of ASCII base64 characters
+                if len(audio_bytes) > 0 and all(32 <= c <= 126 for c in audio_bytes[:min(100, len(audio_bytes))]):
+                    decoded = base64.b64decode(audio_bytes)
+                    if len(decoded) > 0:
+                        audio_bytes = decoded
+            except Exception:
+                pass  # Fallback: keep as raw bytes if base64 decoding fails
+
         try:
             # Assuming 16-bit PCM
             audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
