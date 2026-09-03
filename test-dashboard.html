@@ -525,16 +525,45 @@ async function toggleRecording() {
   }
 }
 
-// Generate synthetic test tone as fallback
+// Generate natural human speech formant tone as fallback for text presets
 function generateTestTone() {
   const sampleRate = 16000;
-  const duration = 1.0;
-  const freq = 440;
-  const nSamples = Math.floor(sampleRate * duration);
+  const nSamples = sampleRate; // 1 second
   const pcm16 = new Int16Array(nSamples);
+
   for (let i = 0; i < nSamples; i++) {
-    pcm16[i] = Math.floor(32767 * 0.8 * Math.sin(2 * Math.PI * freq * i / sampleRate));
+    const t = i / sampleRate;
+
+    // F0 with natural micro-jitter (±2% pitch perturbation)
+    const jitter = 1.0 + 0.02 * Math.sin(2 * Math.PI * 5.5 * t + 1.3)
+                        + 0.01 * Math.sin(2 * Math.PI * 11.3 * t + 0.7);
+    const f0 = 120.0 * jitter;
+
+    // Fundamental + harmonics (glottal pulse approximation)
+    const fundamental = Math.sin(2 * Math.PI * f0 * t);
+    const harmonic2 = 0.6 * Math.sin(2 * Math.PI * 2 * f0 * t);
+    const harmonic3 = 0.3 * Math.sin(2 * Math.PI * 3 * f0 * t);
+    const harmonic4 = 0.15 * Math.sin(2 * Math.PI * 4 * f0 * t);
+
+    // Formant resonances (vowel /a/ shape)
+    const f1 = 0.4 * Math.sin(2 * Math.PI * 500 * t);  // F1 ~500 Hz
+    const f2 = 0.2 * Math.sin(2 * Math.PI * 1500 * t); // F2 ~1500 Hz
+    const f3 = 0.08 * Math.sin(2 * Math.PI * 2500 * t); // F3 ~2500 Hz
+
+    // Syllabic amplitude envelope (~4 Hz modulation = natural speech rhythm)
+    const syllabicEnv = 0.6 + 0.4 * Math.sin(2 * Math.PI * 4.0 * t + 0.5);
+
+    // Breath noise component
+    const noise = 0.03 * (Math.sin(2 * Math.PI * 3200 * t + i * 0.1)
+                        + Math.sin(2 * Math.PI * 4800 * t + i * 0.3)) * 0.5;
+
+    // Mix all components
+    const mixed = (fundamental + harmonic2 + harmonic3 + harmonic4 + f1 + f2 + f3 + noise)
+                  * syllabicEnv * 0.35;
+
+    pcm16[i] = Math.floor(Math.max(-32767, Math.min(32767, mixed * 32767)));
   }
+
   const bytes = new Uint8Array(pcm16.buffer);
   let binary = '';
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);

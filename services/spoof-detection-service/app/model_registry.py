@@ -115,6 +115,10 @@ def heuristic_synthesis_score(audio_features: Any) -> float:
     # Convert Log-Mel to linear power representation
     mel_linear = np.exp(np.clip(mel_spec, -12.0, 5.0))
 
+    # Silence & Unrecorded Audio Gate: Mean log-mel < -8.0 indicates silence/unrecorded fallback audio
+    if float(np.mean(mel_spec)) < -8.0 or float(np.std(mel_spec)) < 0.05:
+        return 0.05
+
     # ===================================================================
     # Dimension 1: Wiener Spectral Flatness (upper mel bands)
     # Human: 0.03-0.20 | AI: 0.30-0.70

@@ -17,6 +17,12 @@ import subprocess
 import urllib.request
 import webbrowser
 
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 # ANSI Colors for terminal output
 GREEN = "\033[92m"
 CYAN = "\033[96m"
@@ -87,13 +93,13 @@ def verify_service_health(port, path="health"):
 def verify_all_health():
     """Verify health across all services."""
     services = [
-        ("Risk Fusion Engine", 8000, "health"),
-        ("Feature Extraction", 8001, "health"),
-        ("Spoof Detection", 8002, "health"),
-        ("Enrollment Service", 8003, "health"),
-        ("Policy Threshold", 8004, "health"),
-        ("Alerting Service", 8005, "health"),
-        ("Orchestrator Engine", 8080, "health"),
+        ("Risk Fusion Engine", 8000, "healthz"),
+        ("Feature Extraction", 8001, "healthz"),
+        ("Spoof Detection", 8002, "healthz"),
+        ("Enrollment Service", 8003, "healthz"),
+        ("Policy Threshold", 8004, "healthz"),
+        ("Alerting Service", 8005, "healthz"),
+        ("Orchestrator Engine", 8080, "healthz"),
         ("Unified Platform Proxy", 9000, ""),
     ]
 
@@ -104,8 +110,8 @@ def verify_all_health():
     all_healthy = True
     for name, port, path in services:
         is_ok = verify_service_health(port, path)
-        status_str = f"{GREEN}🟢 ONLINE (HTTP 200){RESET}" if is_ok else f"{YELLOW}🟡 PENDING / LOCAL{RESET}"
-        print(f" • {name:<26} [Port :{port:<4}] ➔ {status_str}")
+        status_str = f"{GREEN}[ONLINE (HTTP 200)]{RESET}" if is_ok else f"{YELLOW}[PENDING / LOCAL]{RESET}"
+        print(f" * {name:<26} [Port :{port:<4}] -> {status_str}")
         if not is_ok and port == 9000:
             all_healthy = False
 
