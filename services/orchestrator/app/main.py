@@ -141,6 +141,7 @@ async def process_pipeline(req: PipelineRequest) -> PipelineResponse:
         call_session_id=req.session_id,
         tenant_id=req.tenant_id,
         audio_features=flat_features,
+        audio_pcm_base64=req.audio_pcm_base64,
     )
     enrollment_task = client.get_enrollment_status(
         tenant_id=req.tenant_id,

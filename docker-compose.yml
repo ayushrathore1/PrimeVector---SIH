@@ -48,7 +48,8 @@ services:
     ports:
       - "8002:8002"
     environment:
-      - SPOOF_MODEL_REGISTRY_BACKEND=heuristic
+      - SPOOF_MODEL_REGISTRY_BACKEND=deepfake
+      - KMP_DUPLICATE_LIB_OK=TRUE
     volumes:
       - ./services/spoof-detection-service/app:/app/app
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]
@@ -57,7 +58,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 15s
+      start_period: 60s
     networks:
       - voice-integrity
 

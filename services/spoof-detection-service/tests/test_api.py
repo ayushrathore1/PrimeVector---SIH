@@ -89,24 +89,31 @@ def test_detect_with_heuristic_registry_returns_available(client):
 # Input validation
 # =====================================================================
 
-def test_detect_missing_audio_features_returns_422(client):
-    """Missing required field should return 422."""
+def test_detect_missing_audio_features_defaults_to_empty(client):
+    """audio_features is optional (dual-path: trained model uses audio_pcm_base64).
+    When omitted, defaults to empty list and heuristic returns uncertain score."""
     response = client.post("/v1/detect", json={
         "call_session_id": "test-003",
         "tenant_id": "tenant-001",
-        # audio_features missing
+        # audio_features omitted — defaults to []
     })
-    assert response.status_code == 422
+    assert response.status_code == 200
+    data = response.json()
+    assert data["available"] is True
+    # Empty features -> heuristic returns 0.5 (maximally uncertain)
+    assert 0.0 <= data["score"] <= 1.0
 
 
-def test_detect_empty_audio_features_returns_422(client):
-    """Empty audio features list should return 422 (min_length=1)."""
+def test_detect_empty_audio_features_returns_uncertain(client):
+    """Empty audio features list returns uncertain score (not 422)."""
     response = client.post("/v1/detect", json={
         "call_session_id": "test-004",
         "tenant_id": "tenant-001",
         "audio_features": [],
     })
-    assert response.status_code == 422
+    assert response.status_code == 200
+    data = response.json()
+    assert data["available"] is True
 
 
 def test_detect_missing_session_id_returns_422(client):
