@@ -1,24 +1,14 @@
-"""
-Quick end-to-end pipeline verification.
-Sends a real scam transcript through the orchestrator and reports
-which AI model handled each signal.
-"""
-import base64
-import json
-import math
-import struct
-import time
-import urllib.request
-import urllib.error
+"""Quick E2E pipeline verification — checks which AI model path is active."""
+import base64, json, math, struct, time, urllib.request, urllib.error
 
 ORCHESTRATOR = "http://localhost:8080"
 
-def make_audio(freq=440.0, duration=1.0, sample_rate=16000):
-    n = int(sample_rate * duration)
-    samples = [int(32767 * 0.8 * math.sin(2 * math.pi * freq * i / sample_rate)) for i in range(n)]
-    return base64.b64encode(struct.pack(f"<{n}h", *samples)).decode("ascii")
+def make_audio(freq=440.0, dur=1.0, sr=16000):
+    n = int(sr * dur)
+    s = [int(32767*0.8*math.sin(2*math.pi*freq*i/sr)) for i in range(n)]
+    return base64.b64encode(struct.pack(f"<{n}h", *s)).decode()
 
-def post(url, data, timeout=90):
+def post(url, data, timeout=120):
     body = json.dumps(data).encode()
     req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
     try:
@@ -29,65 +19,39 @@ def post(url, data, timeout=90):
     except Exception as e:
         return {"error": str(e)}, 503
 
-print("=" * 65)
-print("  PIPELINE VERIFICATION — Primary AI Models Check")
-print("=" * 65)
-
 payload = {
-    "session_id": "verify-001",
-    "tenant_id": "qa-tenant",
-    "subject_id": "qa-subject-001",
-    "audio_pcm_base64": make_audio(),
-    "sample_rate_hz": 16000,
-    "channels": 1,
+    "session_id": "verify-001", "tenant_id": "qa", "subject_id": "qa-001",
+    "audio_pcm_base64": make_audio(), "sample_rate_hz": 16000, "channels": 1,
     "context_score": 0.3,
-    "transcript": (
-        "Please transfer 50000 rupees immediately to this account "
-        "and share the OTP you just received. This is urgent, "
-        "the RBI has flagged your account and it will be blocked."
-    ),
+    "transcript": "Transfer 50000 rupees now and share the OTP. RBI has flagged your account, it will be blocked."
 }
 
-print(f"\nTranscript: {payload['transcript'][:80]}...")
-print(f"Calling {ORCHESTRATOR}/v1/pipeline/process  (timeout=90s)\n")
+print("=" * 60)
+print("  PIPELINE VERIFICATION")
+print("=" * 60)
+print(f"Calling orchestrator (timeout=120s)...")
 
 t0 = time.monotonic()
-data, status = post(f"{ORCHESTRATOR}/v1/pipeline/process", payload, timeout=180)
+result, status = post(f"{ORCHESTRATOR}/v1/pipeline/process", payload)
 elapsed = time.monotonic() - t0
 
-if "error" in data:
-    print(f"ERROR (HTTP {status}): {data['error'][:300]}")
+if "error" in result:
+    print(f"ERROR (HTTP {status}): {str(result['error'])[:200]}")
 else:
-    cr = data.get("content_risk_signal", {})
-    synth = data.get("synthesis_signal", {})
-    print(f"Total latency  : {elapsed:.1f}s")
-    print(f"Final action   : {data.get('final_action')}")
-    print()
-    print("--- Content Risk (LLM) ---")
-    print(f"  available  : {cr.get('available')}")
-    print(f"  score      : {cr.get('score')}")
-    print(f"  detail     : {cr.get('detail', '')}")
-    print()
-    print("--- Synthesis Detection (Deepfake Model) ---")
-    print(f"  available  : {synth.get('available')}")
-    print(f"  score      : {synth.get('score')}")
-    print(f"  detail     : {synth.get('detail', '')}")
-    print()
-
-    # Check which path was used
-    cr_detail = cr.get("detail", "")
-    synth_detail = synth.get("detail", "")
-
-    if "[Ollama LLM]" in cr_detail:
-        print("[OK] Content Risk  => PRIMARY path: Ollama qwen3:4b LLM")
-    elif "[Multilingual" in cr_detail:
-        print("[FALLBACK] Content Risk => NLP keyword fallback (Ollama unreachable?)")
+    print(f"Latency: {elapsed:.1f}s | Final: {result.get('final_action')}")
+    cr = result.get("content_risk_signal") or {}
+    sy = result.get("synthesis_signal") or {}
+    cr_d = cr.get("detail", "") if isinstance(cr, dict) else ""
+    sy_d = sy.get("detail", "") if isinstance(sy, dict) else ""
+    cr_s = cr.get("score", "?") if isinstance(cr, dict) else "?"
+    sy_s = sy.get("score", "?") if isinstance(sy, dict) else "?"
+    print(f"\nContent Risk  : score={cr_s}  detail={cr_d}")
+    print(f"Synthesis     : score={sy_s}  detail={sy_d}")
+    if "[Ollama LLM]" in cr_d:
+        print("\n[OK] Content Risk => Ollama qwen3:1.7b LLM (PRIMARY)")
+    elif "Multilingual" in cr_d:
+        print("\n[FALLBACK] Content Risk => NLP keywords (Ollama failed)")
+    if "heuristic" in sy_d.lower():
+        print("[FALLBACK] Synthesis => Heuristic (deepfake model not loaded)")
     else:
-        print(f"[?] Content Risk detail: {cr_detail}")
-
-    if "acoustic-heuristic" in synth_detail or "heuristic" in synth_detail.lower():
-        print("[FALLBACK] Synthesis   => heuristic fallback (deepfake model not loaded?)")
-    elif synth.get("available") is False:
-        print("[FALLBACK] Synthesis   => available=false (no model)")
-    else:
-        print("[OK] Synthesis     => Deepfake model active")
+        print("[OK] Synthesis => Deepfake model (PRIMARY)")

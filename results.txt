@@ -1,0 +1,32 @@
+﻿============================================================
+  AUDIO FILE PIPELINE TEST
+============================================================
+
+--- [AI-Generated Voice] test script 1.mp3 ---
+  Loading MP3...
+  Duration: 46.6s
+  Trimmed to 30s
+  Calling pipeline...
+  Latency       : 1.4s
+  Synth Score   : 0.8964703122562305
+  Synth Detail  : model=koyelog-resnet18-gru-attn-ep17-acc0.9840, path=trained-model, architecture
+  Content Risk  : ?
+  Risk Detail   : 
+  Fused Score   : ?
+  Final Action  : RECOMMEND_SUPERVISOR_ESCALATION
+
+--- [Real Scam Call] Scam Alert-1_ Fake Police Officer Tried to Extort  ---
+  Loading MP3...
+  Duration: 739.2s
+  Trimmed to 30s
+  Calling pipeline...
+  Latency       : 1.2s
+  Synth Score   : 0.32825607823728037
+  Synth Detail  : model=koyelog-resnet18-gru-attn-ep17-acc0.9840, path=trained-model, architecture
+  Content Risk  : ?
+  Risk Detail   : 
+  Fused Score   : ?
+  Final Action  : PROCEED
+
+============================================================
+  DONE

@@ -1,4 +1,3 @@
-
 # Voice Integrity Platform — Docker Compose
 
 # Usage:
@@ -45,8 +44,12 @@ services:
     networks:
       - voice-integrity
 
+  # NOTE: spoof-detection runs NATIVELY (not in Docker) because torch + HF model
+  # require a working network during Docker build. The orchestrator reaches it
+  # via host.docker.internal:8002. Start native: see DEVELOPER_GUIDE.md
   spoof-detection-service:
     build: ./services/spoof-detection-service
+    profiles: [ "full-docker" ] # excluded from default `docker compose up`
     ports:
       - "8002:8002"
     environment:
@@ -139,7 +142,7 @@ services:
       - "8080:8080"
     environment:
       - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
-      - OLLAMA_TIMEOUT_S=120
+      - OLLAMA_TIMEOUT_S=60
       - FEATURE_EXTRACTION_URL=http://feature-extraction-service:8001
       - SPOOF_DETECTION_URL=http://host.docker.internal:8002
       - ENROLLMENT_URL=http://enrollment-service:8003
@@ -157,8 +160,6 @@ services:
       start_period: 15s
     depends_on:
       feature-extraction-service:
-        condition: service_healthy
-      spoof-detection-service:
         condition: service_healthy
       enrollment-service:
         condition: service_healthy

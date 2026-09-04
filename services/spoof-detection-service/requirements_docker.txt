@@ -1,0 +1,10 @@
+fastapi
+pydantic
+pydantic-settings
+uvicorn
+pytest
+hypothesis
+numpy
+soundfile
+librosa
+huggingface_hub

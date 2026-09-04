@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 
 # ── Ollama local LLM configuration ────────────────────────────────────
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://host.docker.internal:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:4b")
-OLLAMA_TIMEOUT_S = float(os.environ.get("OLLAMA_TIMEOUT_S", "180.0"))
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:1.7b")
+OLLAMA_TIMEOUT_S = float(os.environ.get("OLLAMA_TIMEOUT_S", "60.0"))
 
 SYSTEM_PROMPT = """You are a financial fraud content analyzer for phone calls in India.
 Analyze the transcript and determine if the caller is attempting:
