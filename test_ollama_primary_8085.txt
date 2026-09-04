@@ -1,0 +1,37 @@
+﻿======================================================================
+  CONTENT RISK RE-TEST (Ollama Local LLM)
+======================================================================
+
+[1] SCAM transcript:
+    "Please transfer 50000 rupees immediately to this account and share the OTP you just received on your phone. This is urgent, the RBI has flagged your account."
+
+    HTTP Status: 200
+    Latency: 17.39s
+    content_risk_signal:
+      score:      0.9
+      confidence: 0.85
+      available:  True
+      detail:     [Ollama LLM] Urgent RBI authority impersonation + money demand + OTP disclosure
+    risk_score:    0.9
+    final_action:  RECOMMEND_SUPERVISOR_ESCALATION
+    explanation:   high risk (0.90): synthesis check unavailable; no enrolled voiceprint on file to compare against; conversation content flagged as risky ([Ollama LLM] Urgent RBI authority impersonation + money demand + OTP disclosure)
+
+[2] BENIGN transcript:
+    "Are we still meeting for lunch tomorrow at the usual place? I was thinking we could try the new restaurant."
+
+    HTTP Status: 200
+    Latency: 9.41s
+    content_risk_signal:
+      score:      0.0
+      confidence: 0.85
+      available:  True
+      detail:     [Ollama LLM] The conversation is casual and does not involve any fraudulent activities such as fund transfers, OTP disclosure, authority impersonation, or social engineering pressure.
+    risk_score:    0.0
+    final_action:  PROCEED
+
+======================================================================
+  VERDICT
+======================================================================
+  Content risk scores: scam=0.900, benign=0.000
+  PASS: Scam score (0.900) significantly higher than benign (0.000)
+  Content risk is WORKING and discriminating!

@@ -173,7 +173,7 @@ verifyAndReleaseFundTransfer();`;
     "score": 0.90,
     "confidence": 0.95,
     "available": true,
-    "detail": "Groq LLM urgency & high-value transfer flag"
+    "detail": "Ollama LLM urgency & high-value transfer flag"
   },
   "risk_assessment": {
     "risk_score": 0.92,
@@ -206,21 +206,19 @@ verifyAndReleaseFundTransfer();`;
           <div className="flex items-center gap-2 bg-obsidian-900 p-1 rounded-lg border border-obsidian-700 font-mono text-xs">
             <button
               onClick={() => setActiveSdkTab('python')}
-              className={`px-3 py-1.5 rounded ${
-                activeSdkTab === 'python'
+              className={`px-3 py-1.5 rounded ${activeSdkTab === 'python'
                   ? 'bg-forensic-amber text-obsidian-950 font-bold'
                   : 'text-slate-400 hover:text-white'
-              }`}
+                }`}
             >
               Python (voiceintegrity)
             </button>
             <button
               onClick={() => setActiveSdkTab('node')}
-              className={`px-3 py-1.5 rounded ${
-                activeSdkTab === 'node'
+              className={`px-3 py-1.5 rounded ${activeSdkTab === 'node'
                   ? 'bg-forensic-amber text-obsidian-950 font-bold'
                   : 'text-slate-400 hover:text-white'
-              }`}
+                }`}
             >
               Node.js (@voiceintegrity/sdk)
             </button>

@@ -1,4 +1,6 @@
+
 # Voice Integrity Platform — Docker Compose
+
 # Usage:
 #   Full stack:       docker compose up --build
 #   Single service:   docker compose up --build feature-extraction-service
@@ -17,9 +19,9 @@ services:
       - "8000:8000"
     volumes:
       - ./services/risk-fusion-engine/app:/app/app
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    command: [ "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload" ]
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,9 +35,9 @@ services:
       - "8001:8001"
     volumes:
       - ./services/feature-extraction-service/app:/app/app
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+    command: [ "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload" ]
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/healthz')"]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/healthz')" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -52,13 +54,16 @@ services:
       - KMP_DUPLICATE_LIB_OK=TRUE
     volumes:
       - ./services/spoof-detection-service/app:/app/app
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]
+      - ${HF_HOME:-~/.cache/huggingface}:/root/.cache/huggingface
+    command: [ "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002", "--reload" ]
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/healthz')"]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/healthz')" ]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 60s
+      start_period: 120s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - voice-integrity
 
@@ -68,9 +73,9 @@ services:
       - "8003:8003"
     volumes:
       - ./services/enrollment-service/app:/app/app
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003", "--reload"]
+    command: [ "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003", "--reload" ]
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/healthz')"]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/healthz')" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -88,9 +93,9 @@ services:
       - "8004:8004"
     volumes:
       - ./services/policy-threshold-engine/app:/app/app
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8004", "--reload"]
+    command: [ "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8004", "--reload" ]
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8004/healthz')"]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8004/healthz')" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -111,9 +116,9 @@ services:
       - "8005:8005"
     volumes:
       - ./services/alerting-service/app:/app/app
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8005", "--reload"]
+    command: [ "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8005", "--reload" ]
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8005/healthz')"]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8005/healthz')" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -133,18 +138,19 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - GROQ_API_KEY=${GROQ_API_KEY}
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - OLLAMA_TIMEOUT_S=120
       - FEATURE_EXTRACTION_URL=http://feature-extraction-service:8001
-      - SPOOF_DETECTION_URL=http://spoof-detection-service:8002
+      - SPOOF_DETECTION_URL=http://host.docker.internal:8002
       - ENROLLMENT_URL=http://enrollment-service:8003
       - RISK_FUSION_URL=http://risk-fusion-engine:8000
       - POLICY_ENGINE_URL=http://policy-threshold-engine:8004
       - ALERTING_URL=http://alerting-service:8005
     volumes:
       - ./services/orchestrator/app:/app/app
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
+    command: [ "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--reload" ]
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz')"]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz')" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -162,6 +168,8 @@ services:
         condition: service_healthy
       alerting-service:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - voice-integrity
 
@@ -182,7 +190,7 @@ services:
     healthcheck:
       # gRPC-only server — no HTTP /healthz endpoint.
       # Check process is alive; TCP readiness is best-effort for this service.
-      test: ["CMD-SHELL", "test -f /proc/1/status"]
+      test: [ "CMD-SHELL", "test -f /proc/1/status" ]
       interval: 10s
       timeout: 5s
       retries: 3

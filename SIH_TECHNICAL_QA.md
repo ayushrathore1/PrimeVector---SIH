@@ -64,7 +64,7 @@ Step 1: Feature Extraction
 Step 2: Parallel Detection (asyncio.gather)
     2a. POST /v1/detect → synthesis_signal (is this AI-generated?)
     2b. GET  /status    → speaker_match_signal (does voice match enrolled voiceprint?)
-    2c. POST /groq-llm  → content_risk_signal (is the transcript a scam script?)
+    2c. Local Ollama LLM → content_risk_signal (is the transcript a scam script?)
 
 Step 3: Risk Fusion
     POST /v1/assess → Noisy-OR fusion of all signals → fused risk_score
@@ -121,15 +121,15 @@ The bounds **[0.85, 1.35]** are deliberate:
 - **Context alone can NEVER drive risk above 0.40** (MODERATE threshold) if acoustic evidence is clean. This prevents false positives based purely on metadata like "the caller is using a new phone."
 
 ### Q13. What is the content risk signal and how is it generated?
-**A.** The content risk signal uses **LLM-based transcript analysis** via the Groq API. The orchestrator sends the call transcript to a language model with a structured system prompt that evaluates four scam indicators:
+**A.** The content risk signal uses **LLM-based transcript analysis** via a local Ollama LLM (qwen3:4b). The orchestrator sends the call transcript to the locally-running language model with a structured system prompt that evaluates four scam indicators:
 1. Fund transfer / money demands
 2. OTP or credential disclosure requests
 3. Authority impersonation with urgency (fake police/CBI/TRAI/RBI officers)
 4. Social engineering pressure tactics
 
-The LLM returns a structured JSON `{"content_risk_score": 0.0-1.0, "reason": "..."}` with `temperature=0.1` for deterministic output. The response is enforced via `response_format: json_object`.
+The LLM returns a structured JSON `{"content_risk_score": 0.0-1.0, "reason": "..."}` via Ollama's JSON schema enforcement. All inference runs 100% on-device — zero data leaves the user's machine.
 
-**Fail-safe**: If the Groq API key is missing, the API call fails, or the JSON response doesn't parse correctly, the signal returns `available: false` — it never fakes a safe score.
+**Fail-safe**: If Ollama is unreachable, times out, or returns malformed JSON, the system falls back to the local multilingual NLP classifier (regex/intent-based). If that also fails, the signal returns `available: false` — it never fakes a safe score.
 
 ### Q14. How is fused confidence calculated?
 **A.** Fused confidence = **minimum confidence** among all available evidence signals:
@@ -241,7 +241,7 @@ Each service has a `healthcheck` that polls its `/healthz` endpoint every 10s. T
 |---|---|---|---|
 | `synthesis_signal` | Spoof Detection (:8002) | Is this audio AI-synthesized? | 0.0 = natural speech, 1.0 = definitely synthetic |
 | `speaker_match_signal` | Enrollment (:8003) | Does voice match enrolled voiceprint? | 0.0 = perfect match, 1.0 = completely different person |
-| `content_risk_signal` | Groq LLM (orchestrator) | Does the transcript contain scam language? | 0.0 = benign conversation, 1.0 = active scam |
+| `content_risk_signal` | Local Ollama LLM (orchestrator) | Does the transcript contain scam language? | 0.0 = benign conversation, 1.0 = active scam |
 | `contextual_signal` | Caller metadata | Is the transaction context suspicious? | 0.0 = low-risk context, 1.0 = high-risk context |
 
 The first three are combined via **Noisy-OR** (independent evidence). The contextual signal acts as a **bounded multiplier** on the fused result.
@@ -344,13 +344,13 @@ The URL pattern `/api/{port}/path` is parsed by the proxy, which extracts the po
 ### Q36. Why bounded context multiplier instead of including context in Noisy-OR?
 **A.** Including context in Noisy-OR would allow a high-risk transaction context alone (with clean acoustic signals) to produce a high risk score. This would mean the system is "accusing someone of voice fraud based on metadata alone" — that's a false positive that erodes trust. The bounded multiplier ensures context can **nudge** acoustic evidence up or down by 15-35%, but can never independently drive a high-risk decision.
 
-### Q37. Why use Groq instead of self-hosted LLM for content risk?
-**A.** Trade-off between latency and deployment complexity:
-- **Groq**: <2s inference, no GPU infrastructure needed, API key deployment, temperature 0.1 for near-determinism
-- **Self-hosted**: Full control, no data leaves premises, but requires GPU provisioning, model serving infrastructure, and ongoing maintenance
-- **Fail-safe**: If Groq is unavailable, the signal returns `available: false` — the platform continues to function with acoustic signals alone. Content risk is an additive signal, not a dependency.
+### Q37. Why use a local Ollama LLM instead of a cloud API for content risk?
+**A.** Privacy-first architecture — zero data leaves the device:
+- **Local Ollama (qwen3:4b)**: All inference runs on-device, no API keys needed, full DPDP/GDPR compliance, ~3-8s inference on CPU
+- **Cloud APIs (removed)**: Would require sending call transcripts to external servers, violating the platform's core privacy commitment
+- **Fallback chain**: If Ollama is unavailable, the system falls back to the built-in multilingual NLP classifier (regex/intent-based, <1ms). If all analyzers fail, the signal returns `available: false` — the platform continues with acoustic signals alone. Content risk is an additive signal, not a dependency.
 
-In production for a bank, a self-hosted model behind a VPN would be recommended. The architecture supports swapping the `assess_content_risk()` implementation without changing any other service.
+The architecture supports swapping the `assess_content_risk()` implementation without changing any other service.
 
 ### Q38. Why does enrollment require 3 sessions on different days?
 **A.** Two security reasons:
@@ -432,7 +432,7 @@ The tenant can then enroll subjects (voiceprints), adjust thresholds, and option
 | Speaker Embedding | d-vector / ResNet | 192-dimensional voice identity vector |
 | Spoof Detection | AASIST / ResNet variant | Classify bonafide vs synthesized speech |
 | Language ID | Accent classifier | Route to region-specific spoof models |
-| Content Risk | Groq LLM (GPT-class) | Transcript scam analysis |
+| Content Risk | Local Ollama LLM (qwen3:4b) | Transcript scam analysis |
 
 ### Q49. What is the "shadow mode" in spoof detection?
 **A.** Shadow mode allows deploying a new model version alongside the production model. Both models score every request, but only the production model's score is returned to the caller. The shadow model's scores are logged for offline comparison. When the shadow model demonstrates equal or better performance, it can be promoted to production without downtime.

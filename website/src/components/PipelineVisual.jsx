@@ -106,7 +106,7 @@ export default function PipelineVisual() {
             </div>
             <span className="font-mono text-xs text-purple-400 font-bold">{contentScore.toFixed(2)}</span>
           </div>
-          <p className="text-[11px] text-slate-400 mb-3">Groq LLM transcript scam & urgency pattern scan</p>
+          <p className="text-[11px] text-slate-400 mb-3">Local Ollama LLM transcript scam & urgency pattern scan</p>
           <input
             type="range"
             min="0"

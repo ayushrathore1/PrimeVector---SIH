@@ -1,0 +1,21 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.12.4, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\jhata\AppData\Local\Programs\Python\Python312\python.exe
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: D:\SIH26\PrimeVector---SIH\services\orchestrator
+configfile: pyproject.toml
+plugins: anyio-4.12.1, hypothesis-6.167.1, asyncio-1.3.0, respx-0.23.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 9 items
+
+tests/test_pipeline.py::test_healthz PASSED                              [ 11%]
+tests/test_pipeline.py::test_happy_path PASSED                           [ 22%]
+tests/test_pipeline.py::test_feature_extraction_failure PASSED           [ 33%]
+tests/test_pipeline.py::test_spoof_detection_failure PASSED              [ 44%]
+tests/test_pipeline.py::test_enrollment_failure PASSED                   [ 55%]
+tests/test_pipeline.py::test_risk_fusion_failure PASSED                  [ 66%]
+tests/test_pipeline.py::test_policy_engine_failure PASSED                [ 77%]
+tests/test_pipeline.py::test_alerting_failure_non_blocking PASSED        [ 88%]
+tests/test_pipeline.py::test_not_enrolled_subject PASSED                 [100%]
+
+============================== 9 passed in 2.31s ==============================

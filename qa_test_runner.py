@@ -164,7 +164,7 @@ if resp_440.get("log_mel"):
 # ===================================================================
 # TEST 2.5: Content Risk (via orchestrator endpoint check)
 # ===================================================================
-section("TEST 2.5: Content Risk — Groq LLM Transcript Analysis")
+section("TEST 2.5: Content Risk — Local Ollama LLM Transcript Analysis")
 
 # The content risk is embedded in the orchestrator pipeline, not a standalone endpoint.
 # We need to test it through the orchestrator. But first, let's check if there's a direct endpoint.

@@ -55,9 +55,9 @@ graph TD
 
 #### Initial Setup (one-time)
 ```bash
-# 1. Create .env from template and fill in your Groq API key
+# 1. Create .env from template
 cp .env.example .env
-# Edit .env and set GROQ_API_KEY=your-actual-key
+# .env comes pre-configured with OLLAMA_URL for local Ollama LLM
 ```
 
 #### Start the Full Stack

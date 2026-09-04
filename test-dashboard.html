@@ -717,7 +717,7 @@ function showResults(data) {
     `;
 
     if (crSignal && crSignal.available && crSignal.score > 0.4) {
-      fraudBreakdownHtml += `<li><b style="color:var(--red)">Conversation Content Scam Flagged:</b> ${crSignal.detail || 'High scam risk detected by Groq LLM'} (Content Risk Score: ${(crSignal.score*100).toFixed(0)}%)</li>`;
+      fraudBreakdownHtml += `<li><b style="color:var(--red)">Conversation Content Scam Flagged:</b> ${crSignal.detail || 'High scam risk detected by Local Ollama LLM'} (Content Risk Score: ${(crSignal.score*100).toFixed(0)}%)</li>`;
     }
     if (synthSignal && synthSignal.available && synthSignal.score > 0.5) {
       fraudBreakdownHtml += `<li><b style="color:var(--red)">AI Voice Clone / Synthesis Detected:</b> High probability of synthetic audio (Synthesis Score: ${(synthSignal.score*100).toFixed(0)}%)</li>`;

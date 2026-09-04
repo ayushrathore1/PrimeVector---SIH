@@ -36,7 +36,7 @@ export default function HomePage({ setActiveTab }) {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto font-sans leading-relaxed"
           >
-            Combines Resemblyzer speaker verification, acoustic spectral heuristic analysis, and Groq LLM transcript scam scanning into a single audited Noisy-OR risk score in under 60ms.
+            Combines Resemblyzer speaker verification, acoustic spectral heuristic analysis, and local Ollama LLM transcript scam scanning into a single audited Noisy-OR risk score in under 60ms.
           </motion.p>
 
           <motion.div
@@ -152,7 +152,7 @@ export default function HomePage({ setActiveTab }) {
             </div>
             <h4 className="font-serif text-base font-bold text-white mb-2">Parallel Signal Evaluation</h4>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Parallel execution pings <code className="text-slate-300">spoof-detection-service</code> (acoustic score), <code className="text-slate-300">enrollment-service</code> (voiceprint match), and Groq LLM scam scanning.
+              Parallel execution pings <code className="text-slate-300">spoof-detection-service</code> (acoustic score), <code className="text-slate-300">enrollment-service</code> (voiceprint match), and local Ollama LLM scam scanning.
             </p>
           </motion.div>
 
@@ -222,7 +222,7 @@ export default function HomePage({ setActiveTab }) {
                 </li>
                 <li className="flex items-start gap-2.5 p-3 rounded bg-obsidian-850 border border-obsidian-800">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5"></span>
-                  <span><strong>Groq LLM Content Scanning:</strong> Real-time transcript scam pattern & urgency keyword risk classification.</span>
+                  <span><strong>Local Ollama LLM Scanning:</strong> Real-time transcript scam pattern & urgency keyword risk classification completely on-device.</span>
                 </li>
                 <li className="flex items-start gap-2.5 p-3 rounded bg-obsidian-850 border border-obsidian-800">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 mt-1.5"></span>

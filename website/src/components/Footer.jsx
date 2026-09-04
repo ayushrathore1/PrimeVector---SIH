@@ -66,7 +66,7 @@ export default function Footer({ setActiveTab }) {
               <li>• Bounded Context Multiplier (0.85x - 1.35x)</li>
               <li>• Opt-In Auto-Block Liability Gate</li>
               <li>• Resemblyzer 256-D Voice Embeddings</li>
-              <li>• Groq LLM Content Risk Classifier</li>
+              <li>• Local Ollama Content Risk Classifier</li>
             </ul>
           </div>
         </div>

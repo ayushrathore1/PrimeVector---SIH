@@ -18,7 +18,7 @@
 
 ## 🤖 AI & ML Models Suite (100% On-Premise & Open-Source, Zero External APIs)
 
-To ensure **100% data privacy**, **zero conversation leakage**, and **strict compliance with India's DPDP Act and GDPR**, PrimeVector **does not use any third-party external cloud APIs (No OpenAI, No Groq, No paid APIs)**. The entire AI/ML stack runs 100% locally and on-premise.
+To ensure **100% data privacy**, **zero conversation leakage**, and **strict compliance with India's DPDP Act and GDPR**, PrimeVector **does not use any third-party external cloud APIs (No OpenAI, No paid APIs)**. The entire AI/ML stack runs 100% locally and on-premise, including the LLM for content analysis.
 
 ```
 [Raw Audio RAM Stream] ➔ [1. Log-Mel Spectrogram Model] ➔ [2. Deepfake Synthesis Detector]

@@ -1,8 +1,8 @@
 """
-Re-test content risk after Groq model fix.
+Re-test content risk after Ollama local LLM integration.
 Tests: scam transcript vs benign transcript via full pipeline.
 """
-import base64, json, math, struct, urllib.request, urllib.error
+import base64, json, math, struct, urllib.request, urllib.error, time
 
 def make_sine_pcm_base64(freq_hz, duration_s=1.0, sample_rate=16000):
     n_samples = int(sample_rate * duration_s)
@@ -17,11 +17,15 @@ def post_json(url, data, timeout=30):
         return json.loads(resp.read().decode("utf-8")), resp.status
     except urllib.error.HTTPError as e:
         return {"error": e.read().decode("utf-8"), "status_code": e.code}, e.code
+    except urllib.error.URLError as e:
+        return {"error": str(e.reason), "status_code": 503}, 503
+    except Exception as e:
+        return {"error": str(e), "status_code": 500}, 500
 
 audio = make_sine_pcm_base64(440.0, duration_s=1.0)
 
 print("=" * 70)
-print("  CONTENT RISK RE-TEST (after Groq model fix)")
+print("  CONTENT RISK RE-TEST (Ollama Local LLM)")
 print("=" * 70)
 
 # Test 1: Scam transcript
@@ -37,9 +41,12 @@ scam_payload = {
 }
 print("\n[1] SCAM transcript:")
 print(f'    "{scam_payload["transcript"]}"')
-resp_scam, status_scam = post_json("http://localhost:8080/v1/pipeline/process", scam_payload, timeout=60)
+t0 = time.monotonic()
+resp_scam, status_scam = post_json("http://localhost:8081/v1/pipeline/process", scam_payload, timeout=60)
+t1 = time.monotonic()
 cr_scam = resp_scam.get("content_risk_signal", {})
 print(f"\n    HTTP Status: {status_scam}")
+print(f"    Latency: {t1-t0:.2f}s")
 print(f"    content_risk_signal:")
 print(f"      score:      {cr_scam.get('score', 'N/A')}")
 print(f"      confidence: {cr_scam.get('confidence', 'N/A')}")
@@ -62,9 +69,12 @@ benign_payload = {
 }
 print(f'\n[2] BENIGN transcript:')
 print(f'    "{benign_payload["transcript"]}"')
-resp_benign, status_benign = post_json("http://localhost:8080/v1/pipeline/process", benign_payload, timeout=60)
+t0 = time.monotonic()
+resp_benign, status_benign = post_json("http://localhost:8081/v1/pipeline/process", benign_payload, timeout=60)
+t1 = time.monotonic()
 cr_benign = resp_benign.get("content_risk_signal", {})
 print(f"\n    HTTP Status: {status_benign}")
+print(f"    Latency: {t1-t0:.2f}s")
 print(f"    content_risk_signal:")
 print(f"      score:      {cr_benign.get('score', 'N/A')}")
 print(f"      confidence: {cr_benign.get('confidence', 'N/A')}")
@@ -83,10 +93,8 @@ benign_avail = cr_benign.get("available", False)
 
 if not scam_avail and not benign_avail:
     detail = cr_scam.get("detail", "")
-    if "404" in detail:
-        print("  STILL BROKEN: Groq still returning 404. Model may need different name.")
-    else:
-        print(f"  STILL BROKEN: content_risk available=false. Detail: {detail}")
+    print(f"  Content risk available=false for both. Detail: {detail}")
+    print("  This means Ollama LLM was unreachable; local NLP fallback should still work.")
 elif scam_avail and benign_avail:
     scam_score = cr_scam.get("score", 0)
     benign_score = cr_benign.get("score", 0)

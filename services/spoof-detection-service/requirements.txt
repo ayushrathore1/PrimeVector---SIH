@@ -5,6 +5,7 @@ uvicorn
 pytest
 hypothesis
 numpy
+soundfile
 librosa
 huggingface_hub
 --extra-index-url https://download.pytorch.org/whl/cpu

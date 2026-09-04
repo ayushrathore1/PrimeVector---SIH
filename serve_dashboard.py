@@ -39,7 +39,10 @@ class ProxyHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(content)
         elif self.path == "/" or self.path == "":
-            self.path = "/index.html"
+            if not os.path.isfile(os.path.join(DASHBOARD_DIR, "index.html")):
+                self.path = "/test-dashboard.html"
+            else:
+                self.path = "/index.html"
             super().do_GET()
         else:
             # Fallback to index.html for SPA client-side routing

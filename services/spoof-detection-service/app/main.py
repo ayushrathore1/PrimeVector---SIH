@@ -39,10 +39,25 @@ def _create_registry() -> ModelRegistry:
       - "heuristic": Log-mel heuristic scorer v4.0. Cannot distinguish
         real voice from modern TTS. Fallback only.
       - "stub": No model registered. All requests return available=false.
+
+    If the deepfake backend is requested but model download fails
+    (e.g. network issues pulling from HuggingFace), falls back to
+    heuristic so the service can still start and respond with
+    degraded-but-alive signals instead of crashing entirely.
     """
     backend = settings.model_registry_backend
     if backend == "deepfake":
-        return DeepfakeModelRegistry()
+        try:
+            return DeepfakeModelRegistry()
+        except Exception as e:
+            logger.warning(
+                "Failed to initialize deepfake model registry (%s). "
+                "Falling back to heuristic backend so the service can "
+                "start. Spoof detection will use acoustic heuristics "
+                "until the model is available.",
+                e,
+            )
+            return StubModelRegistry(enable_heuristic=True)
     elif backend == "heuristic":
         return StubModelRegistry(enable_heuristic=True)
     elif backend == "stub":

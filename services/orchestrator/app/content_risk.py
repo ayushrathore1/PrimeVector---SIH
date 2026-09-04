@@ -9,21 +9,23 @@ FEATURES:
     ("RBI says do not transfer your OTP", "Bank never asks for PIN") to ensure 0% false positives.
   - Fraud Intent Taxonomy: Digital Arrest, OTP/CVV Coercion, Authority Impersonation, KYC/Account Threats, Remote Access Malware.
   - Flexible Non-Linear Scoring & Multi-Category Fusion (<1ms execution latency).
-  - Optional fallback to Groq LLM if GROQ_API_KEY is explicitly configured.
+  - Optional Ollama LLM (qwen3:4b) for enhanced analysis — fully local, zero external calls.
 """
 
 import json
 import logging
 import os
 import re
+import time
 from dataclasses import dataclass
 from typing import Optional, Tuple, List
 
 logger = logging.getLogger(__name__)
 
-GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
-GROQ_TIMEOUT_S = 6.0
+# ── Ollama local LLM configuration ────────────────────────────────────
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://host.docker.internal:11434")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:4b")
+OLLAMA_TIMEOUT_S = float(os.environ.get("OLLAMA_TIMEOUT_S", "180.0"))
 
 SYSTEM_PROMPT = """You are a financial fraud content analyzer for phone calls in India.
 Analyze the transcript and determine if the caller is attempting:
@@ -420,65 +422,91 @@ def analyze_transcript_multilingual(transcript: str) -> Tuple[float, float, str]
     return final_score, confidence, reason
 
 
+async def _call_ollama(transcript: str, context: str = "") -> Optional[ContentRiskResult]:
+    """
+    Call the local Ollama LLM for content-risk analysis.
+
+    POST to {OLLAMA_URL}/api/chat with structured JSON output.
+    Returns ContentRiskResult on success, None on any failure.
+    """
+    import httpx
+
+    user_content = f"--- TRANSCRIPT ---\n{transcript}\n--- END ---"
+    if context:
+        user_content += f"\nContext: {context}"
+
+    request_body = {
+        "model": OLLAMA_MODEL,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_content},
+        ],
+        "stream": False,
+        "format": {
+            "type": "object",
+            "properties": {
+                "content_risk_score": {"type": "number"},
+                "reason": {"type": "string"},
+            },
+            "required": ["content_risk_score", "reason"],
+        },
+    }
+
+    try:
+        t0 = time.monotonic()
+        timeout = httpx.Timeout(connect=10.0, read=OLLAMA_TIMEOUT_S, write=10.0, pool=5.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.post(
+                f"{OLLAMA_URL}/api/chat",
+                json=request_body,
+            )
+            resp.raise_for_status()
+
+        elapsed = time.monotonic() - t0
+        resp_json = resp.json()
+        content = resp_json.get("message", {}).get("content", "")
+        parsed = json.loads(content)
+        score = max(0.0, min(1.0, float(parsed["content_risk_score"])))
+        reason = str(parsed.get("reason", "Ollama LLM analysis"))
+
+        logger.info(
+            "Ollama content-risk analysis completed in %.2fs (model=%s, score=%.2f)",
+            elapsed, OLLAMA_MODEL, score,
+        )
+
+        return ContentRiskResult(
+            score=score,
+            confidence=0.85,
+            available=True,
+            detail=f"[Ollama LLM] {reason}",
+        )
+    except Exception as e:
+        logger.warning(f"Ollama content risk evaluation failed: {e}. Falling back to internal NLP.")
+        print(f">>> OLLAMA FAILED: {e}")
+        return None
+
+
 async def assess_content_risk(
     transcript: str,
     context: str = "",
 ) -> ContentRiskResult:
     """
     Assess content risk of a conversation transcript.
-    Uses Multilingual Indian Language Local Open-Source NLP Fraud Engine
-    (with optional Groq API fallback if configured).
+
+    Fallback chain (all local, zero external calls):
+      1. Ollama LLM (primary) — local qwen3:4b via Ollama API
+      2. Multilingual Local NLP Classifier (regex/intent-based)
+      3. Fail-safe: available=false (never a fabricated safe score)
     """
     if not transcript or len(transcript.strip()) < 5:
         return _failsafe("transcript too short for analysis")
 
-    api_key = os.environ.get("GROQ_API_KEY", "").strip()
+    # Tier 1: Ollama local LLM
+    ollama_result = await _call_ollama(transcript, context)
+    if ollama_result is not None:
+        return ollama_result
 
-    # Optional: External Groq API if explicit key is configured
-    if api_key:
-        try:
-            import httpx
-            user_content = f"--- TRANSCRIPT ---\n{transcript}\n--- END ---"
-            if context:
-                user_content += f"\nContext: {context}"
-
-            request_body = {
-                "model": GROQ_MODEL,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_content},
-                ],
-                "temperature": 0.1,
-                "response_format": {"type": "json_object"},
-            }
-
-            async with httpx.AsyncClient(timeout=GROQ_TIMEOUT_S) as client:
-                resp = await client.post(
-                    GROQ_API_URL,
-                    json=request_body,
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json",
-                    },
-                )
-                resp.raise_for_status()
-
-            resp_json = resp.json()
-            content = resp_json["choices"][0]["message"]["content"]
-            parsed = json.loads(content)
-            score = max(0.0, min(1.0, float(parsed["content_risk_score"])))
-            reason = str(parsed.get("reason", "Groq LLM analysis"))
-
-            return ContentRiskResult(
-                score=score,
-                confidence=0.85,
-                available=True,
-                detail=f"[Groq LLM] {reason}",
-            )
-        except Exception as e:
-            logger.warning("Groq API error (%s); falling back to Multilingual Local NLP Classifier", e)
-
-    # Primary Mode: Multilingual Local Open-Source Engine
+    # Tier 2: Multilingual Local Open-Source NLP Engine
     try:
         score, confidence, detail = analyze_transcript_multilingual(transcript)
         return ContentRiskResult(
@@ -489,4 +517,6 @@ async def assess_content_risk(
         )
     except Exception as e:
         logger.error("Multilingual Local NLP analysis error: %s", e)
-        return _failsafe(f"Local NLP error: {type(e).__name__}")
+
+    # Tier 3: Fail-safe — never fabricate a safe score
+    return _failsafe(f"All content-risk analyzers unavailable")
