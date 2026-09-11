@@ -155,21 +155,27 @@ def start_ml_services():
         _processes.append((svc["name"], proc, log_file))
         print(f"  ▶ {svc['name']:30s} → port {svc['port']} (PID {proc.pid})")
 
-    print("\n  ⏳ Waiting for services to initialize...")
-    time.sleep(15)  # Give PyTorch/Resemblyzer time to load models
-
-    # Health check
+    print("\n  ⏳ Waiting for ML models & PyTorch to initialize...")
     import urllib.request
     all_ok = True
+
     for svc in SERVICES:
         url = f"http://localhost:{svc['port']}/healthz"
-        try:
-            resp = urllib.request.urlopen(url, timeout=10)
-            status = "✅ HEALTHY" if resp.status == 200 else f"⚠️  HTTP {resp.status}"
-        except Exception as e:
-            status = f"❌ FAILED ({e})"
+        svc_healthy = False
+        for attempt in range(12):  # Poll up to 30s (12 x 2.5s)
+            try:
+                resp = urllib.request.urlopen(url, timeout=3)
+                if resp.status == 200:
+                    svc_healthy = True
+                    break
+            except Exception:
+                time.sleep(2.5)
+
+        if svc_healthy:
+            print(f"  {svc['name']:30s} → ✅ HEALTHY")
+        else:
+            print(f"  {svc['name']:30s} → ❌ FAILED (timed out loading model)")
             all_ok = False
-        print(f"  {svc['name']:30s} → {status}")
 
     if not all_ok:
         print("\n  ⚠️  Some services failed to start. Check logs in /content/*.log")
