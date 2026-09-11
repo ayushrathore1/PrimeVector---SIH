@@ -27,14 +27,28 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://host.docker.internal:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:1.7b")
 OLLAMA_TIMEOUT_S = float(os.environ.get("OLLAMA_TIMEOUT_S", "60.0"))
 
-SYSTEM_PROMPT = """You are a financial fraud content analyzer for phone calls in India.
-Analyze the transcript and determine if the caller is attempting:
-1. Fund transfer / money demand
-2. OTP or credential disclosure
-3. Authority impersonation with urgency (police, CBI, TRAI, RBI)
-4. Social engineering pressure tactics
+SYSTEM_PROMPT = """You are a precise financial fraud and scam detector for phone call transcripts.
 
-Return ONLY a JSON object, no other text:
+CRITICAL DISCRIMINATION RULES:
+1. SCAM / HIGH RISK (score 0.80 - 1.00):
+   - The caller DEMANDS, SOLICITS, EXTORTS, or ASKS the victim for an OTP, PIN, CVV, bank password, or immediate money transfer.
+   - The caller IMPERSONATES police, CBI, TRAI, customs, or bank officials while THREATENING arrest, legal action, or account blocking.
+   - Examples of HIGH RISK:
+     * "Give me your OTP right now or your account will be locked" -> score: 0.95
+     * "I am from CBI, transfer 50000 rupees immediately to avoid arrest" -> score: 0.95
+     * "Tell me the 6 digit verification code sent to your phone" -> score: 0.90
+
+2. BENIGN / EDUCATIONAL / ADVISORY / ZERO RISK (score 0.00):
+   - The speaker WARNS against sharing OTPs, advises caution, or states security rules (e.g. "do not share your OTP with anyone", "never give your PIN to strangers", "bank never asks for OTP").
+   - The speaker REFUSES to share an OTP or PIN (e.g. "I will not give you my OTP").
+   - Normal casual or business conversation (e.g. "Hello brother how are you doing today", "What is my account balance").
+   - Examples of ZERO RISK:
+     * "Do not share your OTP with anyone" -> score: 0.00 (educational security warning)
+     * "Never give your PIN to strangers" -> score: 0.00 (precautionary advice)
+     * "I will not share my OTP with you" -> score: 0.00 (refusal)
+
+Analyze the transcript carefully and determine if there is an ACTIVE fraud attempt vs educational warning/benign speech.
+Return ONLY a valid JSON object, no other text:
 {"content_risk_score": <float 0.0-1.0>, "reason": "<short string explaining why>"}
 """
 
@@ -486,6 +500,22 @@ async def _call_ollama(transcript: str, context: str = "") -> Optional[ContentRi
         return None
 
 
+def _is_pure_advisory_or_refusal(transcript: str) -> bool:
+    """Check if transcript is an educational security warning or refusal without active scam demands."""
+    t_lower = transcript.lower()
+    has_advisory = bool(ADVISORY_NEGATION.search(t_lower))
+    has_threat = bool(THREAT_CONSEQUENCE_MARKERS.search(t_lower))
+    has_authority = bool(AUTHORITY_CLAIM_MARKERS.search(t_lower))
+    is_explicit_warning = bool(re.search(
+        r"\b(do\s*not|don'?t|never|must\s*not|should\s*not|will\s*not|bank\s*never)\s+(share|give|tell|disclose|provide|transfer)\b",
+        t_lower
+    )) or ("i will not" in t_lower) or ("never share" in t_lower) or ("do not share" in t_lower)
+
+    if (has_advisory or is_explicit_warning) and not (has_threat or has_authority):
+        return True
+    return False
+
+
 async def assess_content_risk(
     transcript: str,
     context: str = "",
@@ -504,6 +534,13 @@ async def assess_content_risk(
     # Tier 1: Ollama local LLM
     ollama_result = await _call_ollama(transcript, context)
     if ollama_result is not None:
+        if _is_pure_advisory_or_refusal(transcript) and ollama_result.score > 0.1:
+            return ContentRiskResult(
+                score=0.0,
+                confidence=0.95,
+                available=True,
+                detail=f"{ollama_result.detail} [Advisory Guard: 0.0]",
+            )
         return ollama_result
 
     # Tier 2: Multilingual Local Open-Source NLP Engine

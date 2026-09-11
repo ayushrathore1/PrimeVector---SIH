@@ -108,7 +108,7 @@ SERVICES = [
         "name": "spoof-detection-service",
         "app_dir": f"{REPO_DIR}/services/spoof-detection-service/app",
         "port": 8002,
-        "env": {"SPOOF_MODEL_REGISTRY_BACKEND": "heuristic"},
+        "env": {"SPOOF_MODEL_REGISTRY_BACKEND": "deepfake"},
     },
     {
         "name": "enrollment-service",
@@ -200,6 +200,19 @@ from fastapi import FastAPI, Request, Response
 
 app = FastAPI(title="PrimeVector Colab Reverse Proxy")
 
+client = None
+
+@app.on_event("startup")
+async def startup_event():
+    global client
+    client = httpx.AsyncClient(timeout=30.0, limits=httpx.Limits(max_keepalive_connections=20, max_connections=50))
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    global client
+    if client:
+        await client.aclose()
+
 ROUTES = {
     "/feat": "http://localhost:8001",
     "/spoof": "http://localhost:8002",
@@ -210,13 +223,13 @@ ROUTES = {
 async def healthz():
     """Combined health check for all 3 ML services."""
     results = {}
-    async with httpx.AsyncClient(timeout=5.0) as client:
-        for prefix, base_url in ROUTES.items():
-            try:
-                resp = await client.get(f"{base_url}/healthz")
-                results[prefix] = {"status": "ok", "code": resp.status_code}
-            except Exception as e:
-                results[prefix] = {"status": "error", "detail": str(e)}
+    cli = client or httpx.AsyncClient(timeout=5.0)
+    for prefix, base_url in ROUTES.items():
+        try:
+            resp = await cli.get(f"{base_url}/healthz")
+            results[prefix] = {"status": "ok", "code": resp.status_code}
+        except Exception as e:
+            results[prefix] = {"status": "error", "detail": str(e)}
     all_ok = all(r["status"] == "ok" for r in results.values())
     return {"status": "ok" if all_ok else "degraded", "services": results}
 
@@ -239,31 +252,31 @@ async def proxy(prefix: str, path: str, request: Request):
     headers = dict(request.headers)
     headers.pop("host", None)
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        try:
-            resp = await client.request(
-                method=request.method,
-                url=target_url,
-                content=body,
-                headers=headers,
-            )
-            return Response(
-                content=resp.content,
-                status_code=resp.status_code,
-                media_type=resp.headers.get("content-type", "application/json"),
-            )
-        except httpx.TimeoutException:
-            return Response(
-                content='{"error": "Upstream service timeout"}',
-                status_code=504,
-                media_type="application/json",
-            )
-        except Exception as e:
-            return Response(
-                content=f'{{"error": "Proxy error: {str(e)}"}}',
-                status_code=502,
-                media_type="application/json",
-            )
+    cli = client or httpx.AsyncClient(timeout=30.0)
+    try:
+        resp = await cli.request(
+            method=request.method,
+            url=target_url,
+            content=body,
+            headers=headers,
+        )
+        return Response(
+            content=resp.content,
+            status_code=resp.status_code,
+            media_type=resp.headers.get("content-type", "application/json"),
+        )
+    except httpx.TimeoutException:
+        return Response(
+            content='{"error": "Upstream service timeout"}',
+            status_code=504,
+            media_type="application/json",
+        )
+    except Exception as e:
+        return Response(
+            content=f'{{"error": "Proxy error: {str(e)}"}}',
+            status_code=502,
+            media_type="application/json",
+        )
 '''
 
 

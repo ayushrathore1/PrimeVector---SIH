@@ -6,16 +6,26 @@ Usage: python serve_dashboard.py
 Then open: http://localhost:9000
 """
 import http.server
+from http.server import ThreadingHTTPServer
 import json
 import os
 import urllib.request
 import urllib.error
+
+import time
+import threading
 
 PORT = 9000
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIST = os.path.join(BASE_DIR, "frontend", "dist")
 WEBSITE_DIST = os.path.join(BASE_DIR, "website", "dist")
 DASHBOARD_DIR = FRONTEND_DIST if os.path.isfile(os.path.join(FRONTEND_DIST, "index.html")) else (WEBSITE_DIST if os.path.isfile(os.path.join(WEBSITE_DIST, "index.html")) else BASE_DIR)
+
+# ── Health Check Cache ──
+# Prevents ngrok tunnel / local proxy stampedes when multiple components poll or refresh
+HEALTH_CACHE = {}  # (port, path) -> (timestamp, status, content_type, body)
+HEALTH_CACHE_LOCK = threading.Lock()
+HEALTH_CACHE_TTL = 3.0  # seconds
 
 # ── Load .env for Colab Hybrid Mode ──
 COLAB_TUNNEL_URL = ""
@@ -101,6 +111,21 @@ class ProxyHandler(http.server.SimpleHTTPRequestHandler):
         else:
             url = f"http://localhost:{port}{path}"
 
+        # Short-circuit caching for GET /healthz queries to prevent ngrok burst bottlenecks
+        if method == "GET" and path == "/healthz":
+            cache_key = (port, path)
+            now = time.time()
+            with HEALTH_CACHE_LOCK:
+                if cache_key in HEALTH_CACHE:
+                    ts, c_status, c_type, c_body = HEALTH_CACHE[cache_key]
+                    if now - ts < HEALTH_CACHE_TTL:
+                        self.send_response(c_status)
+                        self.send_header("Content-Type", c_type)
+                        self.send_header("Content-Length", len(c_body))
+                        self.end_headers()
+                        self.wfile.write(c_body)
+                        return
+
         # Read body for POST
         body = None
         if method == "POST":
@@ -115,6 +140,9 @@ class ProxyHandler(http.server.SimpleHTTPRequestHandler):
         try:
             resp = urllib.request.urlopen(req, timeout=60)
             resp_body = resp.read()
+            if method == "GET" and path == "/healthz" and resp.status == 200:
+                with HEALTH_CACHE_LOCK:
+                    HEALTH_CACHE[(port, path)] = (time.time(), resp.status, resp.headers.get("Content-Type", "application/json"), resp_body)
             self.send_response(resp.status)
             self.send_header("Content-Type", resp.headers.get("Content-Type", "application/json"))
             self.send_header("Content-Length", len(resp_body))
@@ -151,7 +179,7 @@ if __name__ == "__main__":
     print(f"  Proxying API calls to Docker services")
     print(f"  Press Ctrl+C to stop\n")
 
-    server = http.server.HTTPServer(("", PORT), ProxyHandler)
+    server = ThreadingHTTPServer(("", PORT), ProxyHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

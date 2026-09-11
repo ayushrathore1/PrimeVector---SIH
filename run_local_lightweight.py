@@ -219,13 +219,24 @@ def start_local_services(colab_url):
         ]
 
         try:
-            proc = subprocess.Popen(
-                cmd,
-                cwd=svc["app_dir"],
-                env=env,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+            # Log orchestrator stderr to a file for debugging
+            if svc["name"] == "orchestrator":
+                _orch_log = open(os.path.join(BASE_DIR, "orchestrator_debug.log"), "w")
+                proc = subprocess.Popen(
+                    cmd,
+                    cwd=svc["app_dir"],
+                    env=env,
+                    stdout=subprocess.DEVNULL,
+                    stderr=_orch_log,
+                )
+            else:
+                proc = subprocess.Popen(
+                    cmd,
+                    cwd=svc["app_dir"],
+                    env=env,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
             _processes.append((svc["name"], proc))
             print(f"  {GREEN}▶ {svc['name']:30s} → port {port} (PID {proc.pid}){RESET}")
         except Exception as e:

@@ -48,7 +48,7 @@ DEFAULT_RISK_FUSION_URL = os.environ.get("RISK_FUSION_URL", "http://localhost:80
 DEFAULT_POLICY_ENGINE_URL = os.environ.get("POLICY_ENGINE_URL", "http://localhost:8004")
 DEFAULT_ALERTING_URL = os.environ.get("ALERTING_URL", "http://localhost:8005")
 
-DOWNSTREAM_TIMEOUT_S = 5.0
+DOWNSTREAM_TIMEOUT_S = float(os.environ.get("DOWNSTREAM_TIMEOUT_S", "60.0"))
 
 
 class PipelineClient:
@@ -72,8 +72,10 @@ class PipelineClient:
         self.policy_engine_url = policy_engine_url
         self.alerting_url = alerting_url
         # Allow injection of a pre-configured AsyncClient (for testing).
+        # ngrok free tier returns an HTML interstitial unless this header is present.
         self._client = http_client or httpx.AsyncClient(
             timeout=httpx.Timeout(DOWNSTREAM_TIMEOUT_S),
+            headers={"ngrok-skip-browser-warning": "true"},
         )
 
     async def close(self) -> None:

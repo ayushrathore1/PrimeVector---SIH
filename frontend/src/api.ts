@@ -23,7 +23,7 @@ async function apiGet(port: number, path: string, headers?: Record<string, strin
   const res = await fetch(`/api/${port}${path}`, {
     method: 'GET',
     headers: { 'Accept': 'application/json', ...headers },
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(12000),
   });
   return res;
 }
@@ -195,21 +195,39 @@ export { SERVICE_LIST };
 export async function checkServiceHealth(port: number): Promise<HealthResult> {
   const svc = SERVICE_LIST.find(s => s.port === port) || { name: `port-${port}`, port };
   const start = performance.now();
-  try {
-    const res = await apiGet(port, '/healthz');
-    const latencyMs = Math.round(performance.now() - start);
-    if (res.ok) {
-      const data = await res.json();
-      return { name: svc.name, port, status: 'healthy', latencyMs, extra: data };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await apiGet(port, '/healthz');
+      const latencyMs = Math.round(performance.now() - start);
+      if (res.ok) {
+        const data = await res.json();
+        return { name: svc.name, port, status: 'healthy', latencyMs, extra: data };
+      }
+    } catch {
+      if (attempt === 0) {
+        await new Promise(r => setTimeout(r, 300));
+        continue;
+      }
     }
-    return { name: svc.name, port, status: 'unhealthy', latencyMs };
-  } catch {
-    return { name: svc.name, port, status: 'unhealthy' };
   }
+  return { name: svc.name, port, status: 'unhealthy', latencyMs: Math.round(performance.now() - start) };
 }
 
+let inflightHealthCheck: Promise<HealthResult[]> | null = null;
+
 export async function checkAllHealth(): Promise<HealthResult[]> {
-  return Promise.all(SERVICE_LIST.map(s => checkServiceHealth(s.port)));
+  if (inflightHealthCheck) return inflightHealthCheck;
+
+  inflightHealthCheck = (async () => {
+    try {
+      const results = await Promise.all(SERVICE_LIST.map(s => checkServiceHealth(s.port)));
+      return results;
+    } finally {
+      setTimeout(() => { inflightHealthCheck = null; }, 1000);
+    }
+  })();
+
+  return inflightHealthCheck;
 }
 
 // ─── Orchestrator Pipeline ──────────────────────────────────────────

@@ -159,23 +159,23 @@ def heuristic_synthesis_score(audio_features: Any) -> float:
     # Scores are combined with weighted average.
 
     # High spectral contrast → concentrated energy → suspicious
-    # Real speech ≈ 2.2, synthetic ≈ 26. Center at 10.
-    s_contrast = _sigmoid_map(spectral_contrast, center=10.0, steepness=0.5)
+    # Real speech mel contrast ≈ 25–45 dB, synthetic tonal spikes ≈ >75 dB. Center at 65.0.
+    s_contrast = _sigmoid_map(spectral_contrast, center=65.0, steepness=0.1)
 
     # Low upper-band variance → no formant modulation → suspicious
-    # Real speech ≈ 0.27, synthetic ≈ 0.00. Center at 0.10.
+    # Real speech ≈ 0.27, synthetic ≈ 0.00. Center at 0.03.
     # INVERTED: low value = suspicious = high score
-    s_upper_var = 1.0 - _sigmoid_map(upper_log_std, center=0.10, steepness=30.0)
+    s_upper_var = 1.0 - _sigmoid_map(upper_log_std, center=0.03, steepness=30.0)
 
     # Low dynamic range → constant spectrum → suspicious
-    # Real speech ≈ 1.9, synthetic ≈ 0.12. Center at 0.5.
+    # Real speech ≈ 1.9, synthetic ≈ 0.12. Center at 0.25.
     # INVERTED: low value = suspicious = high score
-    s_dyn_range = 1.0 - _sigmoid_map(dynamic_range, center=0.5, steepness=5.0)
+    s_dyn_range = 1.0 - _sigmoid_map(dynamic_range, center=0.25, steepness=5.0)
 
     # Low delta energy → unnaturally smooth → suspicious
-    # Real speech ≈ 0.11, synthetic ≈ 0.04. Center at 0.07.
+    # Real speech ≈ 0.11, synthetic ≈ 0.04. Center at 0.04.
     # INVERTED: low value = suspicious = high score
-    s_delta = 1.0 - _sigmoid_map(delta_energy, center=0.07, steepness=40.0)
+    s_delta = 1.0 - _sigmoid_map(delta_energy, center=0.04, steepness=40.0)
 
     # Weighted combination — spectral_contrast is the strongest discriminator
     weights = [0.35, 0.25, 0.20, 0.20]
