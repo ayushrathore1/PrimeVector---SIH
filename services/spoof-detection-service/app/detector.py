@@ -30,7 +30,7 @@ from typing import Optional
 
 from config import Settings
 from language_id import LanguageIdentifier, LanguageIdResult
-from model_registry import ModelRegistry, ModelRegistryEntry
+from model_registry import ModelRegistry, ModelRegistryEntry, DeepfakeModelRegistry
 from schemas import SpoofDetectionRequest, SynthesisSignalResponse
 
 logger = logging.getLogger(__name__)
@@ -127,14 +127,27 @@ class SpoofDetector:
         """
         Run the full spoof-detection pipeline.
 
+        Supports dual-path detection:
+          - If audio_pcm_base64 is present AND the registry is a
+            DeepfakeModelRegistry, use the trained model directly.
+            Audio is decoded in-memory, used for inference, and
+            immediately dereferenced (DESIGN.md section 7).
+          - Otherwise, fall back to the heuristic path using
+            pre-extracted audio_features.
+
         Returns a SynthesisSignalResponse matching the RiskSignal proto
         shape, suitable for direct use as the ``synthesis_signal`` input
         to risk-fusion-engine.
         """
-        # Step 1: Language/accent identification pre-pass (§4.4).
-        lang_result = self._lang_id.identify(request.audio_features)
+        # Dual-path: prefer trained model when raw audio is available
+        if (
+            request.audio_pcm_base64 is not None
+            and isinstance(self._registry, DeepfakeModelRegistry)
+        ):
+            return self._run_trained_inference(request)
 
-        # Step 2: Route to the appropriate model.
+        # Fallback: heuristic path using pre-extracted log-mel features
+        lang_result = self._lang_id.identify(request.audio_features)
         model_entry, routing_path = self._resolve_model(lang_result)
 
         if model_entry is None:
@@ -154,7 +167,6 @@ class SpoofDetector:
                 detail=detail,
             )
 
-        # Step 3: Run inference with timeout.
         return self._run_inference(
             model_entry=model_entry,
             audio_features=request.audio_features,
@@ -162,6 +174,77 @@ class SpoofDetector:
             cluster=lang_result.cluster,
             routing_path=routing_path,
         )
+
+    def _run_trained_inference(
+        self, request: SpoofDetectionRequest
+    ) -> SynthesisSignalResponse:
+        """
+        Run the trained deepfake model on raw PCM audio.
+
+        Audio bytes are decoded in-memory, mel spectrogram computed,
+        model inference run, and all audio data immediately dereferenced.
+        No audio is persisted to disk, database, or logs (DESIGN.md section 7).
+        """
+        assert isinstance(self._registry, DeepfakeModelRegistry)
+        trained_entry = self._registry.trained_entry
+        version = trained_entry.version
+
+        try:
+            future = _executor.submit(
+                trained_entry.model, request.audio_pcm_base64
+            )
+            result = future.result(timeout=self._timeout_s)
+
+            logit = float(result["logit"])
+            score = _sigmoid(logit)
+            confidence = _confidence_from_logit(logit)
+
+            score = max(0.0, min(1.0, score))
+            confidence = max(0.0, min(1.0, confidence))
+
+            detail = (
+                f"model={version}, path=trained-model, "
+                f"architecture=ResNet18+GRU+Attention"
+            )
+
+            logger.info(
+                "Spoof detection (trained model): call_session_id=%s, "
+                "score=%.4f, confidence=%.4f, %s",
+                request.call_session_id, score, confidence, detail,
+            )
+
+            return SynthesisSignalResponse(
+                score=score,
+                confidence=confidence,
+                available=True,
+                detail=detail,
+            )
+
+        except FuturesTimeoutError:
+            detail = (
+                f"model={version}, path=trained-model, "
+                f"reason=inference timeout ({self._timeout_s*1000:.0f}ms)"
+            )
+            logger.error(
+                "Spoof detection TIMEOUT (trained): call_session_id=%s, %s",
+                request.call_session_id, detail,
+            )
+            return SynthesisSignalResponse(
+                score=0.0, confidence=0.0, available=False, detail=detail,
+            )
+
+        except Exception as exc:
+            detail = (
+                f"model={version}, path=trained-model, "
+                f"reason=inference error: {exc}"
+            )
+            logger.error(
+                "Spoof detection FAILED (trained): call_session_id=%s, %s",
+                request.call_session_id, detail, exc_info=True,
+            )
+            return SynthesisSignalResponse(
+                score=0.0, confidence=0.0, available=False, detail=detail,
+            )
 
     def _resolve_model(
         self, lang_result: LanguageIdResult

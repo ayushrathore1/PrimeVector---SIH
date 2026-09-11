@@ -17,6 +17,21 @@ FRONTEND_DIST = os.path.join(BASE_DIR, "frontend", "dist")
 WEBSITE_DIST = os.path.join(BASE_DIR, "website", "dist")
 DASHBOARD_DIR = FRONTEND_DIST if os.path.isfile(os.path.join(FRONTEND_DIST, "index.html")) else (WEBSITE_DIST if os.path.isfile(os.path.join(WEBSITE_DIST, "index.html")) else BASE_DIR)
 
+# ── Load .env for Colab Hybrid Mode ──
+COLAB_TUNNEL_URL = ""
+_env_file = os.path.join(BASE_DIR, ".env")
+if os.path.isfile(_env_file):
+    with open(_env_file, "r") as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line.startswith("COLAB_TUNNEL_URL=") and not _line.startswith("#"):
+                COLAB_TUNNEL_URL = _line.split("=", 1)[1].strip().rstrip("/")
+                break
+
+if COLAB_TUNNEL_URL:
+    print(f"  [COLAB] Routing ML services via tunnel: {COLAB_TUNNEL_URL}")
+    print(f"  [COLAB] Port remap: 8080->8085 (orchestrator), 8001->Colab/feat, 8002->Colab/spoof, 8003->Colab/enroll")
+
 # Routes: /api/PORT/path → http://localhost:PORT/path
 SERVICE_PORTS = [8000, 8001, 8002, 8003, 8004, 8005, 8080]
 
@@ -69,7 +84,19 @@ class ProxyHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(400, f"Invalid port: {port_str}")
             return
 
-        url = f"http://localhost:{port}{path}"
+        # ── Colab Hybrid Mode: remap ports ──
+        # Orchestrator moved from 8080 to 8085 (8080 often occupied)
+        if port == 8080:
+            port = 8085
+
+        # Route ML services through Colab tunnel if available
+        colab_url = COLAB_TUNNEL_URL
+        colab_prefix_map = {8001: "/feat", 8002: "/spoof", 8003: "/enroll"}
+
+        if colab_url and port in colab_prefix_map:
+            url = f"{colab_url}{colab_prefix_map[port]}{path}"
+        else:
+            url = f"http://localhost:{port}{path}"
 
         # Read body for POST
         body = None
@@ -79,6 +106,8 @@ class ProxyHandler(http.server.SimpleHTTPRequestHandler):
 
         req = urllib.request.Request(url, data=body, method=method)
         req.add_header("Content-Type", self.headers.get("Content-Type", "application/json"))
+        # ngrok free tier shows a browser warning page; this header bypasses it
+        req.add_header("ngrok-skip-browser-warning", "true")
 
         try:
             resp = urllib.request.urlopen(req, timeout=60)

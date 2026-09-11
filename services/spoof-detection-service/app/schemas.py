@@ -11,24 +11,39 @@ message in proto/risk_assessment.proto exactly:
       string detail = 4;          // short human-readable reason, for audit/UI
     }
 """
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
 class SpoofDetectionRequest(BaseModel):
     """
-    Input from feature-extraction-service.
+    Input for spoof-detection inference.
 
-    The audio_features field carries the feature vector extracted upstream
-    (e.g., wav2vec2 hidden states, mel-spectrogram). Raw audio is never
-    sent to this service — it stays transient in the extraction layer
-    per DESIGN.md §7.
+    Supports two detection paths (dual-path audio delivery):
+
+    1. **Trained model path** (preferred): When ``audio_pcm_base64`` is
+       provided, the service decodes the raw PCM in-memory, computes a
+       128-band log-mel spectrogram internally, and runs the trained
+       ResNet18+GRU+Attention deepfake classifier.  Audio bytes are
+       immediately dereferenced after inference (DESIGN.md section 7).
+
+    2. **Heuristic fallback**: When ``audio_pcm_base64`` is absent, the
+       service falls back to the log-mel heuristic scorer using the
+       pre-extracted ``audio_features`` vector.
     """
     call_session_id: str
     tenant_id: str
     audio_features: list[float] = Field(
-        ...,
-        description="Feature vector extracted upstream (e.g., wav2vec2 hidden states)",
-        min_length=1,
+        default_factory=list,
+        description="Flattened log-mel feature vector from feature-extraction-service (heuristic fallback path)",
+    )
+    audio_pcm_base64: Optional[str] = Field(
+        default=None,
+        description=(
+            "Base64-encoded 16-bit PCM audio for trained model inference. "
+            "Processed in-memory only -- NEVER written to disk (DESIGN.md section 7)."
+        ),
     )
     sample_rate: int = Field(
         default=16000,
@@ -36,7 +51,7 @@ class SpoofDetectionRequest(BaseModel):
     )
     feature_type: str = Field(
         default="log_mel",
-        description="Type of features provided (log_mel or wav2vec2), for model compatibility checks",
+        description="Type of features provided (log_mel), for model compatibility checks",
     )
 
 

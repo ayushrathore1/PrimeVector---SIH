@@ -116,6 +116,63 @@ The heavy packages (PyTorch, Resemblyzer, librosa) are **NOT needed locally** â€
 
 ---
 
+## ðŸ‘¥ How to Share Setup with Teammates
+
+There are **two ways** to share this setup with your team:
+
+### Method A: Share YOUR Live Colab Tunnel (Fastest â€” 1-minute setup for teammate)
+
+If **YOU** already have Google Colab running with ngrok:
+
+1. **You copy your active ngrok URL** from your `.env` file:
+   ```env
+   COLAB_TUNNEL_URL=https://headgear-residual-wooing.ngrok-free.dev
+   ```
+2. **Send that URL to your teammate** (via WhatsApp / Discord / Slack).
+3. **Teammate's local setup**:
+   - Clones repo: `git clone -b local-model-integration https://github.com/ayushrathore1/PrimeVector---SIH.git`
+   - Installs lightweight packages: `pip install fastapi uvicorn pydantic httpx requests`
+   - Paste the shared URL in their `.env`:
+     ```env
+     COLAB_TUNNEL_URL=https://headgear-residual-wooing.ngrok-free.dev
+     ```
+   - Runs `python run_local_lightweight.py`
+4. **Done!** Both of you can hit your active Colab ML backend simultaneously without your teammate needing a Google Colab or ngrok account.
+
+---
+
+### Method B: Teammate Runs Their Own Colab + Own/Shared ngrok Token
+
+If your teammate wants to run their own Colab GPU instance independently:
+
+1. **Get GitHub Personal Access Token (PAT)** (required because the repo is private):
+   - Teammate creates a token at [github.com/settings/tokens](https://github.com/settings/tokens) with `repo` scope.
+
+2. **In Google Colab**, paste and run this cell:
+   ```python
+   # 1. Download launcher from branch
+   !wget -q -O colab_ml_services.py https://raw.githubusercontent.com/ayushrathore1/PrimeVector---SIH/local-model-integration/colab_ml_services.py
+
+   # 2. Run launcher (pass PAT for private repo access & ngrok token)
+   from colab_ml_services import main
+
+   main(
+       ngrok_auth_token="YOUR_OR_TEAMMATE_NGROK_TOKEN",
+       github_pat="TEAMMATE_GITHUB_PAT",
+       branch="local-model-integration"
+   )
+   ```
+   *Note: Teammate can use their own free ngrok token from [ngrok.com](https://dashboard.ngrok.com) OR use your ngrok auth token.*
+
+3. **Teammate configures local `.env`**:
+   - Copy the new ngrok URL printed by Colab into their `.env`:
+     ```env
+     COLAB_TUNNEL_URL=https://xxxx-xx-xx-xx.ngrok-free.app
+     ```
+   - Run `python run_local_lightweight.py` on their machine.
+
+---
+
 ## Troubleshooting
 
 | Issue | Solution |
@@ -123,5 +180,6 @@ The heavy packages (PyTorch, Resemblyzer, librosa) are **NOT needed locally** â€
 | "COLAB_TUNNEL_URL not found" | Add the ngrok URL to your `.env` file |
 | "Colab tunnel NOT reachable" | Check Colab tab is still running; re-run notebook if timed out |
 | ngrok "ERR_NGROK_108" | Free tier limit reached â€” wait 60 seconds and try again |
+| Private repo clone error on Colab | Pass `github_pat="ghp_xxx"` to `main(...)` in the Colab cell |
 | Services unhealthy on Colab | Check Colab cell output or `/content/*.log` files in Colab |
 | Port already in use locally | Kill existing processes: `taskkill /F /IM python.exe` (Windows) |

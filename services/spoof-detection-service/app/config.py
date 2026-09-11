@@ -18,13 +18,15 @@ class Settings(BaseSettings):
 
     # Maximum milliseconds to wait for model inference before treating
     # the call as a timeout (and returning available=false).
-    # Default 250ms leaves headroom within the 300ms p99 SLO (§3).
-    inference_timeout_ms: int = 250
+    # Full pipeline (decode+mel+forward) averages ~30ms on CPU;
+    # 500ms provides generous headroom for cold starts and load spikes.
+    inference_timeout_ms: int = 500
 
-    # Which ModelRegistry backend to use. Currently only "stub" is
-    # implemented — a real backend (e.g., MLflow, custom registry)
-    # must be plugged in before this service produces real scores.
-    model_registry_backend: str = "heuristic"
+    # Which ModelRegistry backend to use.
+    #   - "deepfake": Trained ResNet18+GRU+Attention model (production)
+    #   - "heuristic": Log-mel heuristic scorer v4.0 (fallback only)
+    #   - "stub": No model registered (available=false for all requests)
+    model_registry_backend: str = "deepfake"
 
     # Logging level for structured logs.
     log_level: str = "INFO"

@@ -81,6 +81,13 @@ class SpoofDetectionRequest(BaseModel):
     call_session_id: str
     tenant_id: str
     audio_features: List[float]
+    audio_pcm_base64: Optional[str] = Field(
+        default=None,
+        description=(
+            "Base64-encoded 16-bit PCM audio for trained model inference. "
+            "Processed in-memory only -- NEVER written to disk (DESIGN.md section 7)."
+        ),
+    )
     sample_rate: int = 16000
     feature_type: str = "log_mel"
 

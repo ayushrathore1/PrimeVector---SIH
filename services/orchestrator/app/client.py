@@ -119,12 +119,20 @@ class PipelineClient:
         call_session_id: str,
         tenant_id: str,
         audio_features: List[float],
+        audio_pcm_base64: Optional[str] = None,
     ) -> Optional[SynthesisSignalResponse]:
-        """POST /v1/detect -> SynthesisSignalResponse or None on failure."""
+        """POST /v1/detect -> SynthesisSignalResponse or None on failure.
+
+        When audio_pcm_base64 is provided, the spoof-detection service
+        uses the trained ResNet18+GRU+Attention model on a 128-band mel
+        spectrogram computed from the raw audio.  The audio is decoded
+        in-memory and immediately dereferenced (DESIGN.md section 7).
+        """
         payload = SpoofDetectionRequest(
             call_session_id=call_session_id,
             tenant_id=tenant_id,
             audio_features=audio_features,
+            audio_pcm_base64=audio_pcm_base64,
         )
         try:
             resp = await self._client.post(

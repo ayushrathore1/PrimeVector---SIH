@@ -106,7 +106,7 @@ LOCAL_SERVICES = [
     {
         "name": "orchestrator",
         "app_dir": os.path.join(BASE_DIR, "services", "orchestrator", "app"),
-        "port": 8080,
+        "port": 8085,  # Avoid 8080 which is often occupied by other tools
         "module": "main:app",
         "env": {},  # Will be populated with Colab URLs dynamically
     },
@@ -169,13 +169,26 @@ def start_local_services(colab_url):
     """Start all local lightweight services."""
     print(f"\n{CYAN}  Starting local lightweight services...{RESET}\n")
 
+    orchestrator_port = None  # Track actual orchestrator port
+
     for svc in LOCAL_SERVICES:
         port = svc["port"]
 
-        # Check if already running
-        if check_port_in_use(port):
-            print(f"  {YELLOW}⚠️  {svc['name']:30s} already running on port {port}{RESET}")
-            continue
+        # Check if port is occupied by ANOTHER process
+        if not is_port_available(port):
+            if svc["name"] == "orchestrator":
+                # Try alternative ports
+                for alt in [8085, 8086, 8088, 8090]:
+                    if is_port_available(alt):
+                        print(f"  {YELLOW}⚠️  Port {port} occupied, using {alt} for orchestrator{RESET}")
+                        port = alt
+                        break
+                else:
+                    print(f"  {RED}❌ No available port for orchestrator!{RESET}")
+                    continue
+            else:
+                print(f"  {YELLOW}⚠️  {svc['name']:30s} — port {port} occupied, skipping{RESET}")
+                continue
 
         # Build environment
         env = os.environ.copy()
@@ -190,13 +203,17 @@ def start_local_services(colab_url):
             env["RISK_FUSION_URL"] = "http://localhost:8000"
             env["POLICY_ENGINE_URL"] = "http://localhost:8004"
             env["ALERTING_URL"] = "http://localhost:8005"
+            # Ollama LLM (running locally, not in Docker)
+            env["OLLAMA_URL"] = "http://localhost:11434"
+            env["OLLAMA_MODEL"] = os.environ.get("OLLAMA_MODEL", "qwen3:1.7b")
+            orchestrator_port = port
 
         env.update(svc.get("env", {}))
 
         cmd = [
             sys.executable, "-m", "uvicorn",
             svc["module"],
-            "--host", "127.0.0.1",
+            "--host", "0.0.0.0",
             "--port", str(port),
             "--workers", "1",
         ]
@@ -218,14 +235,16 @@ def start_local_services(colab_url):
     print(f"\n{CYAN}  Waiting for services to initialize...{RESET}")
     time.sleep(4)
 
+    return orchestrator_port or 8085
 
-def verify_all_health(colab_url):
+
+def verify_all_health(colab_url, orchestrator_port=8085):
     """Print health status of all services."""
     services = [
         ("Risk Fusion Engine", 8000, "local"),
         ("Policy Threshold Engine", 8004, "local"),
         ("Alerting Service", 8005, "local"),
-        ("Orchestrator", 8080, "local"),
+        ("Orchestrator", orchestrator_port, "local"),
         ("Feature Extraction", None, "colab"),
         ("Spoof Detection", None, "colab"),
         ("Enrollment Service", None, "colab"),
@@ -334,13 +353,15 @@ def main():
         print(f"\n{YELLOW}  Proceeding anyway — Colab services may come online later.{RESET}")
 
     # Start local services
-    start_local_services(colab_url)
+    orch_port = start_local_services(colab_url)
 
     # Start dashboard
     start_dashboard()
 
     # Health matrix
-    verify_all_health(colab_url)
+    verify_all_health(colab_url, orch_port)
+
+    print(f"{CYAN}  📌 Orchestrator is on port {orch_port} (use /api/{orch_port}/... in dashboard){RESET}")
 
     # Open browser
     target_url = "http://localhost:9000"

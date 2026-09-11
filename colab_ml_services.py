@@ -72,19 +72,24 @@ def install_dependencies():
 REPO_URL = "https://github.com/ayushrathore1/PrimeVector---SIH.git"
 REPO_DIR = "/content/PrimeVector"
 
-def clone_repo():
-    """Clone the repo if not already present."""
+def clone_repo(github_pat=None, branch="local-model-integration"):
+    """Clone the repo (handling private repos with PAT) and checkout specified branch."""
     print("=" * 70)
     print("  📁 STEP 2: Cloning repository...")
     print("=" * 70)
 
+    url = REPO_URL
+    if github_pat:
+        url = f"https://{github_pat}@github.com/ayushrathore1/PrimeVector---SIH.git"
+
     if os.path.isdir(REPO_DIR):
         print(f"  ℹ️  Repo already exists at {REPO_DIR}, pulling latest...")
-        subprocess.run(["git", "pull"], cwd=REPO_DIR, check=True)
+        subprocess.run(["git", "checkout", branch], cwd=REPO_DIR, check=False)
+        subprocess.run(["git", "pull"], cwd=REPO_DIR, check=False)
     else:
-        subprocess.run(["git", "clone", REPO_URL, REPO_DIR], check=True)
+        subprocess.run(["git", "clone", "-b", branch, url, REPO_DIR], check=True)
 
-    print(f"  ✅ Repository ready at {REPO_DIR}\n")
+    print(f"  ✅ Repository ready at {REPO_DIR} (branch: {branch})\n")
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -382,15 +387,15 @@ def cleanup():
 # Main entry point
 # ──────────────────────────────────────────────────────────────────────────
 
-def main(ngrok_auth_token=None):
+def main(ngrok_auth_token=None, github_pat=None, branch="local-model-integration"):
     """
     Run everything. Call this from a Colab cell:
 
         # Option A: Without auth token (limited tunnel duration)
         main()
 
-        # Option B: With auth token (recommended — free signup at ngrok.com)
-        main(ngrok_auth_token="your_token_here")
+        # Option B: With auth token & private repo PAT
+        main(ngrok_auth_token="your_ngrok_token", github_pat="ghp_xxxx", branch="local-model-integration")
     """
     print()
     print("  ╔══════════════════════════════════════════════════════════════╗")
@@ -405,7 +410,7 @@ def main(ngrok_auth_token=None):
     install_dependencies()
 
     # Step 2: Clone repo
-    clone_repo()
+    clone_repo(github_pat=github_pat, branch=branch)
 
     # Step 3: Start ML services
     start_ml_services()

@@ -189,7 +189,7 @@ def heuristic_synthesis_score(audio_features: Any) -> float:
     logger.info(
         "ACOUSTIC_ANALYSIS: n_frames=%d, spectral_contrast=%.4f (s=%.3f), "
         "upper_log_std=%.4f (s=%.3f), dynamic_range=%.4f (s=%.3f), "
-        "delta_energy=%.4f (s=%.3f) → synth_score=%.4f",
+        "delta_energy=%.4f (s=%.3f) -> synth_score=%.4f",
         n_frames,
         spectral_contrast, s_contrast,
         upper_log_std, s_upper_var,
@@ -212,7 +212,16 @@ def _heuristic_model_fn(audio_features: Any) -> dict[str, float]:
 
 class StubModelRegistry(ModelRegistry):
     """
-    ModelRegistry serving the neural voice clone detector model when enabled.
+    ModelRegistry serving the log-mel heuristic scorer (v4.0).
+
+    This is the FALLBACK backend used when the trained deepfake
+    model is not available.  The heuristic uses four hand-crafted
+    features (spectral contrast, upper-band variance, dynamic range,
+    delta energy) computed on 80-band log-mel spectrograms.
+
+    Part 0 testing showed this heuristic CANNOT distinguish real voice
+    from modern TTS (separation = -0.0235, effectively random).
+    Use DeepfakeModelRegistry for production.
     """
 
     def __init__(self, enable_heuristic: bool = False):
@@ -221,7 +230,7 @@ class StubModelRegistry(ModelRegistry):
         if enable_heuristic:
             self._entries["spoof-detector/generic"] = ModelRegistryEntry(
                 model=_heuristic_model_fn,
-                version="acoustic-neural-v4.0",
+                version="acoustic-heuristic-v4.0",
             )
 
     def get_model(self, model_key: str) -> Optional[ModelRegistryEntry]:
@@ -229,3 +238,88 @@ class StubModelRegistry(ModelRegistry):
 
     def list_models(self, prefix: str = "") -> list[str]:
         return [k for k in self._entries if k.startswith(prefix)]
+
+
+class DeepfakeModelRegistry(ModelRegistry):
+    """
+    ModelRegistry serving the trained deepfake voice detector.
+
+    Architecture: ResNet18 CNN on 128-band log-mel spectrograms,
+    followed by BiGRU (2 layers, 256 hidden, bidirectional) and
+    8-head multi-head self-attention, with a 512->128->1 classifier.
+
+    NOTE: Despite the upstream model card claiming Wav2Vec2, the actual
+    trained checkpoint (koyelog/deepfake-voice-detector-sota) is a
+    ResNet18+GRU+Attention model.  This was confirmed by inspecting
+    the checkpoint's state_dict keys (conv1, layer1-3, gru, attention,
+    classifier) and successfully loading with strict=True.
+
+    Model specs:
+      - Parameters: 6.1M
+      - Memory: 23.4 MB
+      - Inference: ~25-40ms full pipeline on CPU
+      - Trained on 822K samples, 98.4% validation accuracy
+      - Val accuracy at saved epoch: 98.40%
+
+    Audio non-retention (DESIGN.md section 7):
+      The predict_from_pcm_base64() function decodes audio in-memory,
+      computes the mel spectrogram, runs inference, and immediately
+      dereferences all audio data.  No raw audio is persisted.
+    """
+
+    def __init__(self):
+        from deepfake_model import load_deepfake_model, predict_from_pcm_base64
+
+        self._torch_model, self._version = load_deepfake_model()
+        self._predict_fn = predict_from_pcm_base64
+
+        # Also keep the heuristic as an internal fallback for requests
+        # that arrive without audio_pcm_base64 (backwards compatibility)
+        self._heuristic_entry = ModelRegistryEntry(
+            model=_heuristic_model_fn,
+            version="acoustic-heuristic-v4.0-fallback",
+        )
+
+        # Create a model entry whose callable accepts audio_pcm_base64
+        def _trained_model_fn(audio_pcm_base64: str) -> dict:
+            return self._predict_fn(self._torch_model, audio_pcm_base64)
+
+        self._trained_entry = ModelRegistryEntry(
+            model=_trained_model_fn,
+            version=self._version,
+            metadata={
+                "architecture": "ResNet18+BiGRU+MultiHeadAttention",
+                "input": "128-band log-mel spectrogram (computed from raw PCM)",
+                "n_mels": 128,
+                "n_fft": 1024,
+                "hop_length": 512,
+            },
+        )
+
+        self._entries = {
+            "spoof-detector/generic": self._trained_entry,
+            "spoof-detector/generic-heuristic": self._heuristic_entry,
+        }
+
+        logger.info(
+            "DeepfakeModelRegistry initialized: trained=%s, heuristic=%s",
+            self._trained_entry.version,
+            self._heuristic_entry.version,
+        )
+
+    @property
+    def trained_entry(self) -> ModelRegistryEntry:
+        """The trained model entry, for direct access by the detector."""
+        return self._trained_entry
+
+    @property
+    def heuristic_entry(self) -> ModelRegistryEntry:
+        """The heuristic fallback entry."""
+        return self._heuristic_entry
+
+    def get_model(self, model_key: str) -> Optional[ModelRegistryEntry]:
+        return self._entries.get(model_key)
+
+    def list_models(self, prefix: str = "") -> list[str]:
+        return [k for k in self._entries if k.startswith(prefix)]
+
