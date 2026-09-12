@@ -220,3 +220,35 @@
   0% { transform: scale(0.85); opacity: 0.8; }
   100% { transform: scale(1.5); opacity: 0; }
 }
+
+/* Call simulation animations & utilities */
+@keyframes ringPulse {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5); }
+  70% { transform: scale(1.06); box-shadow: 0 0 0 22px rgba(22, 163, 74, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+}
+
+@keyframes callWavebar {
+  0%, 100% { height: 6px; }
+  50% { height: 32px; }
+}
+
+.animate-ring-pulse {
+  animation: ringPulse 1.6s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+.call-glass {
+  background: rgba(17, 24, 39, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+.call-wave-bar {
+  display: inline-block;
+  width: 4px;
+  background: linear-gradient(180deg, var(--cyan), var(--accent));
+  border-radius: 4px;
+  animation: callWavebar 1.2s ease-in-out infinite;
+}
+

@@ -43,3 +43,7 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# Dataset cache & temporary files
+services/spoof-detection-service/app/dataset_cache/
+
