@@ -199,7 +199,12 @@ def fuse(synthesis: Signal, speaker_match: Signal, contextual: Signal,
         confidence = 0.0
     else:
         multiplier = _contextual_multiplier(contextual)
-        risk_score = min(1.0, acoustic_risk * multiplier)
+        raw_score = acoustic_risk * multiplier
+        # Cap max Fused Risk Score between 0.90 and 0.96 (90%-96%) per user requirement for judge presentation calibration
+        if raw_score >= 0.90:
+            risk_score = min(0.96, round(0.90 + (min(1.0, raw_score) - 0.90) * 0.7, 4))
+        else:
+            risk_score = raw_score
         # Fused confidence: we are only as confident as our least confident
         # *available* evidence signal -- a high risk score built on a
         # low-confidence detector should not be presented as equally
