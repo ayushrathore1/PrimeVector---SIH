@@ -31,6 +31,7 @@ from typing import Optional
 from config import Settings
 from language_id import LanguageIdentifier, LanguageIdResult
 from model_registry import ModelRegistry, ModelRegistryEntry, DeepfakeModelRegistry
+from dhwani_registry import DhwaniModelRegistry
 from schemas import SpoofDetectionRequest, SynthesisSignalResponse
 
 logger = logging.getLogger(__name__)
@@ -142,7 +143,7 @@ class SpoofDetector:
         # Dual-path: prefer trained model when raw audio is available
         if (
             request.audio_pcm_base64 is not None
-            and isinstance(self._registry, DeepfakeModelRegistry)
+            and isinstance(self._registry, (DeepfakeModelRegistry, DhwaniModelRegistry))
         ):
             return self._run_trained_inference(request)
 
@@ -185,7 +186,7 @@ class SpoofDetector:
         model inference run, and all audio data immediately dereferenced.
         No audio is persisted to disk, database, or logs (DESIGN.md section 7).
         """
-        assert isinstance(self._registry, DeepfakeModelRegistry)
+        assert isinstance(self._registry, (DeepfakeModelRegistry, DhwaniModelRegistry))
         trained_entry = self._registry.trained_entry
         version = trained_entry.version
 
@@ -202,9 +203,11 @@ class SpoofDetector:
             score = max(0.0, min(1.0, score))
             confidence = max(0.0, min(1.0, confidence))
 
+            # Include architecture info from the registry metadata
+            arch = trained_entry.metadata.get("architecture", "unknown")
             detail = (
                 f"model={version}, path=trained-model, "
-                f"architecture=ResNet18+GRU+Attention"
+                f"architecture={arch}"
             )
 
             logger.info(

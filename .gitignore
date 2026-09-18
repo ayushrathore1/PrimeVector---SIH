@@ -47,3 +47,16 @@ Thumbs.db
 # Dataset cache & temporary files
 services/spoof-detection-service/app/dataset_cache/
 
+# Dhwani ML pipeline (trained on Colab, downloaded locally)
+ml/dhwani/data/
+ml/dhwani/.hf_cache/
+ml/dhwani/checkpoints/
+ml/dhwani/logs/
+ml/dhwani/notebooks/.ipynb_checkpoints/
+
+# Model checkpoints (large binary files)
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+

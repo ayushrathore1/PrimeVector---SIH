@@ -19,6 +19,7 @@ from config import settings
 from detector import SpoofDetector
 from language_id import LanguageIdentifier
 from model_registry import ModelRegistry, StubModelRegistry, DeepfakeModelRegistry
+from dhwani_registry import DhwaniModelRegistry
 from schemas import SpoofDetectionRequest, SynthesisSignalResponse
 
 # Configure structured logging.
@@ -55,6 +56,16 @@ def _create_registry() -> ModelRegistry:
                 "Falling back to heuristic backend so the service can "
                 "start. Spoof detection will use acoustic heuristics "
                 "until the model is available.",
+                e,
+            )
+            return StubModelRegistry(enable_heuristic=True)
+    elif backend == "dhwani":
+        try:
+            return DhwaniModelRegistry()
+        except Exception as e:
+            logger.warning(
+                "Failed to initialize Dhwani model registry (%s). "
+                "Falling back to heuristic backend.",
                 e,
             )
             return StubModelRegistry(enable_heuristic=True)

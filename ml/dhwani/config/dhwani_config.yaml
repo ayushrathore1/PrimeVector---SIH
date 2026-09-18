@@ -1,0 +1,88 @@
+# ============================================================
+# Dhwani Voice Deepfake Detection — Configuration
+# ============================================================
+# This config is used by both the Colab training notebook
+# and the local spoof-detection-service inference engine.
+# Audio parameters MUST match PrimeVector feature-extraction-service.
+
+model:
+  name: "Dhwani"
+  architecture: "resnet-se-bigru-attention"  # v2 (auto-detects v1 if v1 checkpoint)
+  version: "2.0"
+
+# Audio parameters — match feature-extraction-service exactly
+audio:
+  sample_rate: 16000
+  n_mels: 80
+  n_fft: 2048
+  hop_length: 160          # 10ms at 16kHz
+  win_length: 400          # 25ms at 16kHz
+  fmin: 0
+  fmax: 8000
+
+# Dataset constraints (Colab)
+dataset:
+  max_dataset_size_gb: 5
+  safety_margin_gb: 2
+  stage_sizes_mb: [500, 1000, 3000, 5000]
+  current_stage: 1         # Start with 500 MB
+
+  target_languages:
+    - Hindi
+    - English
+    - Marathi
+    - Gujarati
+
+  # Speaker-level split ratios (mandatory — no speaker leakage)
+  speaker_split:
+    train: 0.70
+    validation: 0.15
+    test: 0.15
+
+  # Per-language sample targets for Stage 1 (~500 MB pilot)
+  samples_per_language: 200           # v2: 200 (was 150/30 in v1)
+
+# Training hyperparameters
+training:
+  batch_size: 32
+  learning_rate: 0.0005               # v2: lower LR for deeper model
+  weight_decay: 0.0001
+  epochs: 50
+  early_stopping_patience: 10
+  scheduler: "cosine_warm_restarts"   # v2: CosineAnnealingWarmRestarts
+  num_workers: 2
+  loss: "focal"                       # v2: FocalLoss (alpha=0.25, gamma=2.0)
+  focal_alpha: 0.25
+  focal_gamma: 2.0
+  label_smoothing: 0.05               # v2: label smoothing
+  mixup_alpha: 0.2                    # v2: mixup data augmentation
+  spec_augment: true                  # v2: SpecAugment (time + freq masking)
+  gradient_clip_max_norm: 1.0         # v2: gradient clipping
+
+# Inference parameters (chunk-level for streaming)
+inference:
+  window_seconds: 3
+  hop_seconds: 1
+  minimum_audio_seconds: 2
+  prediction_smoothing: "ema"
+  smoothing_alpha: 0.7
+
+checkpoint:
+  baseline_v2_path: "ml/dhwani/checkpoints/dhwani_baseline_v2.pt"  # preferred
+  baseline_v1_path: "ml/dhwani/checkpoints/dhwani_baseline_v1.pt"  # fallback
+  advanced_path: "ml/dhwani/checkpoints/dhwani_advanced_v1.pt"
+
+# Augmentation probabilities
+augmentation:
+  telephone_prob: 0.2
+  noise_prob: 0.3
+  reverb_prob: 0.15
+  volume_variation_prob: 0.2
+  speed_perturbation_prob: 0.15        # v2: speed perturbation (0.9x-1.1x)
+  noise_snr_range: [5, 20]             # dB
+
+# v2 feature configuration
+features:
+  type: "log_mel_delta_delta2"          # 3-channel: Log-Mel + Delta + Delta²
+  n_channels: 3                         # v1 used 1 channel
+  normalization: "per_utterance_per_channel_mean_std"
