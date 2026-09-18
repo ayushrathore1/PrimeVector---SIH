@@ -7,41 +7,44 @@ export default {
   theme: {
     extend: {
       colors: {
-        obsidian: {
-          950: '#07090E',
-          900: '#0B0F17',
-          850: '#0F1523',
-          800: '#141C2E',
-          700: '#1E293B',
-          600: '#334155',
-        },
-        forensic: {
-          amber: '#F59E0B',
-          gold: '#D97706',
-          light: '#FBBF24',
-          glow: 'rgba(245, 158, 11, 0.15)',
-        },
-        risk: {
-          low: '#10B981',      // Emerald green
-          medium: '#F59E0B',   // Amber
-          high: '#EF4444',     // Crimson red
-          critical: '#DC2626', // Deep red
+        forest: '#18280E',
+        'forest-dark': '#0F1A09',
+        'forest-light': '#253C18',
+        'forest-hover': '#1F3413',
+        lemongrass: '#C5FF34',
+        'lemongrass-hover': '#B5F024',
+        'lemongrass-muted': 'rgba(197, 255, 52, 0.2)',
+        sage: '#F4F6F0',
+        'sage-1': '#F4F6F0',
+        'sage-2': '#E9EDE3',
+        'sage-3': '#D8DFC9',
+        'sage-4': '#C2CBB2',
+        'pv-black': '#0D120B',
+        'pv-gray': '#4B5563',
+        'pv-darkgray': '#1F2937',
+        'pv-lightgray': '#6B7280',
+        'pv-border': 'rgba(24, 40, 14, 0.15)',
+        'pv-bg': '#FFFFFF',
+        'pv-card': '#FAFBF8',
+        verdict: {
+          real: '#059669',
+          realBg: '#ECFDF5',
+          realBorder: '#A7F3D0',
+          fake: '#E11D48',
+          fakeBg: '#FFF1F2',
+          fakeBorder: '#FECDD3',
         }
       },
       fontFamily: {
-        serif: ['Fraunces', 'Georgia', 'serif'],
-        sans: ['Space Grotesk', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+        sans: ['Inter', 'SF Pro Display', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
+        display: ['Outfit', 'Inter', 'sans-serif'],
       },
       boxShadow: {
-        'amber-glow': '0 0 25px -5px rgba(245, 158, 11, 0.25)',
-        'cyan-glow': '0 0 25px -5px rgba(6, 182, 212, 0.25)',
-        'card-glow': '0 4px 20px -2px rgba(0, 0, 0, 0.5)',
+        'spade': '0 4px 20px -2px rgba(24, 40, 14, 0.08)',
+        'spade-lg': '0 12px 32px -4px rgba(24, 40, 14, 0.12)',
+        'spade-hover': '0 16px 40px -6px rgba(24, 40, 14, 0.16)',
       },
-      backgroundImage: {
-        'grid-pattern': "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.05) 1px, transparent 0)",
-        'amber-gradient': "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
-      }
     },
   },
   plugins: [],

@@ -1,84 +1,101 @@
 import React from 'react';
-import { Lock, Shield, Cpu, ExternalLink } from 'lucide-react';
+import { Shield, Lock, Cpu, ArrowUpRight, Sparkles } from 'lucide-react';
 
 export default function Footer({ setActiveTab }) {
   return (
-    <footer className="bg-obsidian-950 border-t border-obsidian-700/80 py-12 text-slate-400 font-sans">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-          {/* Col 1 */}
-          <div className="md:col-span-2">
-            <div className="flex items-center gap-2 mb-3">
-              <Shield className="w-5 h-5 text-forensic-amber" />
-              <span className="font-serif text-lg font-bold text-white tracking-wide">
-                PRIME<span className="text-forensic-amber">VECTOR</span>
+    <footer className="relative bg-forest text-white pt-16 pb-12 overflow-hidden border-t border-forest-dark">
+      {/* Background Decorative Graphic */}
+      <div className="absolute inset-0 pointer-events-none opacity-10 bg-grid-spade" />
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-10 pb-12 border-b border-white/10">
+          
+          {/* Brand Column */}
+          <div className="md:col-span-5 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded bg-lemongrass flex items-center justify-center text-forest font-bold">
+                <Shield size={18} />
+              </div>
+              <span className="font-display text-2xl font-extrabold tracking-tight text-white">
+                PRIME<span className="text-lemongrass">VECTOR</span>
               </span>
             </div>
-            <p className="text-sm text-slate-400 mb-4 max-w-md leading-relaxed">
-              Real-time voice authenticity verification and scam pattern analysis platform. Built for banking, call centers, and telecom infrastructure.
+            <p className="text-sm text-white/70 max-w-sm leading-relaxed">
+              The high-speed AI platform for voice security & deepfake detection. Turning raw audio into structured, verified authenticity records — in under 50 milliseconds.
             </p>
-            <div className="flex flex-wrap gap-2 text-xs font-mono">
-              <span className="px-2.5 py-1 rounded bg-obsidian-900 border border-obsidian-700 text-slate-300 flex items-center gap-1.5">
-                <Lock size={12} className="text-emerald-400" /> Fail-Safe Guarantee
+            <div className="flex flex-wrap gap-2 pt-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-white/5 border border-white/10 text-xs font-mono text-lemongrass">
+                <Sparkles size={12} /> Dhwani 2 Engine
               </span>
-              <span className="px-2.5 py-1 rounded bg-obsidian-900 border border-obsidian-700 text-slate-300 flex items-center gap-1.5">
-                <Cpu size={12} className="text-forensic-amber" /> RAM-Only Audio Processing
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-white/5 border border-white/10 text-xs font-mono text-white/80">
+                <Lock size={12} className="text-emerald-400" /> RAM-Only Zero Retention
               </span>
             </div>
           </div>
 
-          {/* Col 2 */}
-          <div>
-            <h4 className="font-mono text-xs font-semibold text-slate-200 uppercase tracking-wider mb-3">
-              Platform Navigation
+          {/* Nav Column 1 */}
+          <div className="md:col-span-3 space-y-3">
+            <h4 className="text-xs font-mono font-semibold uppercase tracking-wider text-lemongrass">
+              Platform & Tools
             </h4>
-            <ul className="space-y-2 text-sm font-mono">
+            <ul className="space-y-2.5 text-sm text-white/80">
               <li>
-                <button onClick={() => setActiveTab('home')} className="hover:text-forensic-amber transition-colors">
-                  System Overview
+                <button onClick={() => setActiveTab('home')} className="hover:text-lemongrass transition-colors">
+                  Overview
                 </button>
               </li>
               <li>
-                <button onClick={() => setActiveTab('status')} className="hover:text-forensic-amber transition-colors">
-                  Live Service Status (8/8)
+                <button onClick={() => setActiveTab('detect')} className="hover:text-lemongrass transition-colors flex items-center gap-1">
+                  Audio Detector <ArrowUpRight size={13} className="opacity-60" />
                 </button>
               </li>
               <li>
-                <button onClick={() => setActiveTab('demo')} className="hover:text-forensic-amber transition-colors">
-                  Real-Time Event Stream
+                <button onClick={() => setActiveTab('docs')} className="hover:text-lemongrass transition-colors">
+                  API Keys & Endpoints
                 </button>
               </li>
               <li>
-                <button onClick={() => setActiveTab('docs')} className="hover:text-forensic-amber transition-colors">
-                  API & SDK Documentation
+                <button onClick={() => setActiveTab('pricing')} className="hover:text-lemongrass transition-colors">
+                  Pay-As-You-Go Pricing
                 </button>
               </li>
             </ul>
           </div>
 
-          {/* Col 3 */}
-          <div>
-            <h4 className="font-mono text-xs font-semibold text-slate-200 uppercase tracking-wider mb-3">
-              System Invariants
+          {/* Nav Column 2 */}
+          <div className="md:col-span-4 space-y-3">
+            <h4 className="text-xs font-mono font-semibold uppercase tracking-wider text-lemongrass">
+              Engine Invariants
             </h4>
-            <ul className="space-y-2 text-xs text-slate-400 font-mono">
-              <li>• Noisy-OR Acoustic Fusion</li>
-              <li>• Bounded Context Multiplier (0.85x - 1.35x)</li>
-              <li>• Opt-In Auto-Block Liability Gate</li>
-              <li>• Resemblyzer 256-D Voice Embeddings</li>
-              <li>• Local Ollama Content Risk Classifier</li>
+            <ul className="space-y-2 text-xs font-mono text-white/70">
+              <li className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-lemongrass" />
+                P99 Latency &lt; 50ms (Optimized C++ & ONNX Run-Time)
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-lemongrass" />
+                Dhwani 2 LFCC Phase-Consistency Extraction
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-lemongrass" />
+                Multi-Tenant Metered Usage & API Rate Limiting
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-lemongrass" />
+                Zero Audio File Persistence on Disk
+              </li>
             </ul>
           </div>
+
         </div>
 
-        <div className="pt-8 border-t border-obsidian-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono">
-          <p className="text-slate-400">
-            © 2026 PrimeVector Platform • SIH Hackathon Production Candidate
-          </p>
-          <div className="flex items-center gap-4 text-slate-400">
-            <span>Built with Go + FastAPI + React</span>
+        {/* Footer Bottom */}
+        <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-white/50">
+          <p>© 2026 PrimeVector Platform. All rights reserved.</p>
+          <div className="flex items-center gap-4">
+            <span>Powered by Dhwani 2 Model Architecture</span>
             <span>•</span>
-            <span className="text-forensic-amber">Zero Audio Retention Verified</span>
+            <span className="text-lemongrass">Ayush Rathore</span>
           </div>
         </div>
       </div>

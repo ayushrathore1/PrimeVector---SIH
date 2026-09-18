@@ -1,169 +1,228 @@
 /**
- * API Helper for PrimeVector Microservices
- * Configured to work via serve_dashboard.py proxy (/api/{port}/{path}) or direct localhost endpoints
+ * PrimeVector API Client
+ *
+ * Connects to the PrimeVector API Gateway for deepfake detection,
+ * API key management, and usage tracking.
  */
 
-export const MICROSERVICES = [
-  {
-    id: 'orchestrator',
-    name: 'orchestrator',
-    port: 8080,
-    role: 'Central Pipeline Ingestion & Orchestration',
-    tier: 'Tier 3 (Orchestrator)',
-    language: 'Python / FastAPI',
-    endpoint: '/healthz',
-  },
-  {
-    id: 'risk-fusion-engine',
-    name: 'risk-fusion-engine',
-    port: 8000,
-    role: 'Noisy-OR Evidence Fusion & Bounded Context Multiplier',
-    tier: 'Tier 0 (Core)',
-    language: 'Python / FastAPI',
-    endpoint: '/healthz',
-  },
-  {
-    id: 'feature-extraction-service',
-    name: 'feature-extraction-service',
-    port: 8001,
-    role: 'Log-Mel Spectrogram & Resemblyzer Embedding Extraction',
-    tier: 'Tier 0 (Core)',
-    language: 'Python / FastAPI',
-    endpoint: '/healthz',
-  },
-  {
-    id: 'spoof-detection-service',
-    name: 'spoof-detection-service',
-    port: 8002,
-    role: 'Acoustic AI Synthesis Detection & Accent Routing',
-    tier: 'Tier 0 (Core)',
-    language: 'Python / FastAPI',
-    endpoint: '/healthz',
-  },
-  {
-    id: 'enrollment-service',
-    name: 'enrollment-service',
-    port: 8003,
-    role: 'Voiceprint Registration & Liveness Challenge Audit',
-    tier: 'Tier 0 (Core)',
-    language: 'Python / FastAPI',
-    endpoint: '/healthz',
-  },
-  {
-    id: 'policy-threshold-engine',
-    name: 'policy-threshold-engine',
-    port: 8004,
-    role: 'Tenant Policy Rules & Opt-In Auto-Block Gate',
-    tier: 'Tier 1 (Rules)',
-    language: 'Python / FastAPI',
-    endpoint: '/healthz',
-  },
-  {
-    id: 'alerting-service',
-    name: 'alerting-service',
-    port: 8005,
-    role: 'Idempotent Alert Dispatch & Hashed Audit Logging',
-    tier: 'Tier 2 (Events)',
-    language: 'Python / FastAPI',
-    endpoint: '/healthz',
-  },
-  {
-    id: 'ingestion-gateway',
-    name: 'ingestion-gateway',
-    port: 50051,
-    role: 'gRPC Streaming Ingress, Rate-limiting & Token-bucket',
-    tier: 'Ingress (gRPC)',
-    language: 'Go 1.22 / gRPC',
-    endpoint: '/healthz', // gRPC native probe check
-  },
-];
+const API_BASE = import.meta.env.VITE_API_BASE || '/api/8090';
+
+// ── Detection ─────────────────────────────────────────────
 
 /**
- * Fetch service health status
+ * Convert an audio File to base64-encoded PCM string.
  */
-export async function checkServiceHealth(port) {
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Detect deepfake in an audio file.
+ */
+export async function detectAudio(file, apiKey) {
   const startTime = performance.now();
+  const base64 = await fileToBase64(file);
+
   try {
-    // Try via serve_dashboard proxy path first: /api/{port}/healthz
-    const proxyUrl = `/api/${port}/healthz`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
-
-    const response = await fetch(proxyUrl, {
-      method: 'GET',
-      signal: controller.signal,
+    const resp = await fetch(`${API_BASE}/v1/detect`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey,
+      },
+      body: JSON.stringify({
+        audio_pcm_base64: base64,
+        sample_rate: 16000,
+      }),
     });
-    clearTimeout(timeoutId);
-    const latency = Math.round(performance.now() - startTime);
 
-    if (response.ok) {
-      const data = await response.json();
-      return {
-        status: 'online',
-        statusCode: response.status,
-        latencyMs: latency,
-        data,
-      };
-    } else {
-      return {
-        status: 'degraded',
-        statusCode: response.status,
-        latencyMs: latency,
-        data: null,
-      };
+    const latencyMs = Math.round(performance.now() - startTime);
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+      return { success: false, statusCode: resp.status, latencyMs, error: err };
     }
+
+    const data = await resp.json();
+    return { success: true, statusCode: resp.status, latencyMs, data };
   } catch (err) {
-    const latency = Math.round(performance.now() - startTime);
     return {
-      status: 'offline',
+      success: false,
       statusCode: 0,
-      latencyMs: latency,
-      error: err.name === 'AbortError' ? 'Timeout (2.5s)' : 'Connection refused / Offline',
+      latencyMs: Math.round(performance.now() - startTime),
+      error: err.message,
     };
   }
 }
 
 /**
- * Execute real pipeline process request through orchestrator
+ * Detect deepfake from base64 audio.
  */
-export async function executePipelineProcess(payload) {
-  const startTime = performance.now();
-  const proxyUrl = `/api/8080/v1/pipeline/process`;
-  
+export async function detectAudioBase64(base64, apiKey, sampleRate = 16000) {
   try {
-    const response = await fetch(proxyUrl, {
+    const resp = await fetch(`${API_BASE}/v1/detect`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-API-Key': apiKey,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        audio_pcm_base64: base64,
+        sample_rate: sampleRate,
+      }),
     });
-    const latencyMs = Math.round(performance.now() - startTime);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      return {
-        success: false,
-        statusCode: response.status,
-        latencyMs,
-        error: errorText,
-      };
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+      return { success: false, error: err };
     }
 
-    const data = await response.json();
-    return {
-      success: true,
-      statusCode: response.status,
-      latencyMs,
-      data,
-    };
+    return { success: true, data: await resp.json() };
   } catch (err) {
-    const latencyMs = Math.round(performance.now() - startTime);
-    return {
-      success: false,
-      statusCode: 0,
-      latencyMs,
-      error: err.message || 'Network error connecting to orchestrator',
-    };
+    return { success: false, error: err.message };
+  }
+}
+
+// ── Usage ─────────────────────────────────────────────────
+
+/**
+ * Get current usage stats.
+ */
+export async function getUsage(apiKey) {
+  try {
+    const resp = await fetch(`${API_BASE}/v1/usage`, {
+      headers: { 'X-API-Key': apiKey },
+    });
+    if (!resp.ok) return { success: false };
+    return { success: true, data: await resp.json() };
+  } catch {
+    return { success: false };
+  }
+}
+
+/**
+ * Get usage history for a date range.
+ */
+export async function getUsageHistory(apiKey, startDate, endDate) {
+  const params = new URLSearchParams();
+  if (startDate) params.set('start_date', startDate);
+  if (endDate) params.set('end_date', endDate);
+
+  try {
+    const resp = await fetch(`${API_BASE}/v1/usage/history?${params}`, {
+      headers: { 'X-API-Key': apiKey },
+    });
+    if (!resp.ok) return { success: false };
+    return { success: true, data: await resp.json() };
+  } catch {
+    return { success: false };
+  }
+}
+
+/**
+ * Get recent detections.
+ */
+export async function getRecentDetections(apiKey, limit = 50) {
+  try {
+    const resp = await fetch(`${API_BASE}/v1/usage/detections?limit=${limit}`, {
+      headers: { 'X-API-Key': apiKey },
+    });
+    if (!resp.ok) return { success: false };
+    return { success: true, data: await resp.json() };
+  } catch {
+    return { success: false };
+  }
+}
+
+// ── API Keys ──────────────────────────────────────────────
+
+/**
+ * List API keys for the org.
+ */
+export async function listApiKeys(apiKey) {
+  try {
+    const resp = await fetch(`${API_BASE}/v1/keys`, {
+      headers: { 'X-API-Key': apiKey },
+    });
+    if (!resp.ok) return { success: false };
+    return { success: true, data: await resp.json() };
+  } catch {
+    return { success: false };
+  }
+}
+
+/**
+ * Create a new API key.
+ */
+export async function createApiKey(apiKey, name, tier = 'free') {
+  try {
+    const resp = await fetch(`${API_BASE}/v1/keys`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey,
+      },
+      body: JSON.stringify({ name, tier }),
+    });
+    if (!resp.ok) return { success: false };
+    return { success: true, data: await resp.json() };
+  } catch {
+    return { success: false };
+  }
+}
+
+/**
+ * Revoke an API key.
+ */
+export async function revokeApiKey(apiKey, keyId) {
+  try {
+    const resp = await fetch(`${API_BASE}/v1/keys/${keyId}`, {
+      method: 'DELETE',
+      headers: { 'X-API-Key': apiKey },
+    });
+    return { success: resp.ok || resp.status === 204 };
+  } catch {
+    return { success: false };
+  }
+}
+
+// ── Health ─────────────────────────────────────────────────
+
+/**
+ * Check API gateway health.
+ */
+export async function checkHealth() {
+  try {
+    const resp = await fetch(`${API_BASE}/v1/health`);
+    if (!resp.ok) return { success: false };
+    return { success: true, data: await resp.json() };
+  } catch {
+    return { success: false };
+  }
+}
+
+// ── Legacy: check service health (for status page compat) ──
+
+export async function checkServiceHealth(port) {
+  const startTime = performance.now();
+  try {
+    const resp = await fetch(`/api/${port}/healthz`, {
+      signal: AbortSignal.timeout(2500),
+    });
+    const latency = Math.round(performance.now() - startTime);
+    if (resp.ok) {
+      return { status: 'online', statusCode: resp.status, latencyMs: latency, data: await resp.json() };
+    }
+    return { status: 'degraded', statusCode: resp.status, latencyMs: latency };
+  } catch {
+    return { status: 'offline', statusCode: 0, latencyMs: Math.round(performance.now() - startTime) };
   }
 }

@@ -1,277 +1,264 @@
 import React, { useState } from 'react';
-import { FileCode, Terminal, Layers, Check, Copy } from 'lucide-react';
+import { FileCode, Terminal, Copy, Check, Lock, Sparkles, Server } from 'lucide-react';
 import CodeBlock from '../components/CodeBlock';
 
 export default function ApiDocsPage() {
   const [activeSdkTab, setActiveSdkTab] = useState('python');
+  const [copiedEndpoint, setCopiedEndpoint] = useState(null);
 
-  const pythonSdkCode = `from voiceintegrity import (
-    VoiceIntegrityClient,
-    RiskAssessmentRequest,
-    RiskSignal,
-    EnrollmentStatus,
-    RecommendedAction,
-    APIError,
-    ConnectionError,
+  const copyToClipboard = (text, id) => {
+    navigator.clipboard.writeText(text);
+    setCopiedEndpoint(id);
+    setTimeout(() => setCopiedEndpoint(null), 2000);
+  };
+
+  const pythonSdk = `import requests
+import base64
+
+API_KEY = "pv_live_your_org_key_here"
+BASE_URL = "https://api.primevector.dev"
+
+# Read audio file and encode as base64
+with open("incoming_call.wav", "rb") as f:
+    audio_b64 = base64.b64encode(f.read()).decode()
+
+# Perform real-time voice verification
+response = requests.post(
+    f"{BASE_URL}/v1/detect",
+    headers={
+        "X-API-Key": API_KEY,
+        "Content-Type": "application/json",
+    },
+    json={
+        "audio_pcm_base64": audio_b64,
+        "sample_rate": 16000,
+    },
 )
 
-# 1. Initialize client with base URL and API key
-client = VoiceIntegrityClient(
-    base_url="https://api.voiceintegrity.bank.internal",
-    api_key="sec_key_live_12345",
-    timeout=2.0,
-)
+result = response.json()
+print(f"Verdict:    {result['verdict']}")       # "real" or "fake"
+print(f"Score:      {result['spoof_score']}")    # 0.0 (real) → 1.0 (fake)
+print(f"Confidence: {result['confidence']}")  # Confidence metric
+print(f"Latency:    {result['latency_ms']}ms")   # Sub-50ms inference`;
 
-# 2. Construct the assessment request from live call & transaction signals
-request = RiskAssessmentRequest(
-    call_session_id="call-sess-987654",
-    tenant_id="bank-retail-prod",
-    synthesis_signal=RiskSignal(
-        score=0.85,
-        confidence=0.92,
-        available=True,
-        detail="Acoustic synthesis artifacts detected in high-frequency band",
-    ),
-    speaker_match_signal=RiskSignal(
-        score=0.78,
-        confidence=0.88,
-        available=True,
-        detail="Voice embedding vector mismatch against enrolled CFO baseline",
-    ),
-    contextual_signal=RiskSignal(
-        score=0.60,
-        confidence=1.0,
-        available=True,
-        detail="High-value wire transfer request ($250,000) to new overseas beneficiary",
-    ),
-    enrollment_status=EnrollmentStatus.ENROLLED,
-)
+  const nodeSdk = `const fs = require('fs');
 
-# 3. Call Assess and branch on recommended actions
-try:
-    response = client.assess(request)
+const API_KEY = 'pv_live_your_org_key_here';
+const BASE_URL = 'https://api.primevector.dev';
 
-    print(f"Risk Score: {response.risk_score:.2f} (Confidence: {response.confidence:.2f})")
-    print(f"Explanation: {response.explanation}")
+// Read audio file
+const audioBuffer = fs.readFileSync('incoming_call.wav');
+const audioBase64 = audioBuffer.toString('base64');
 
-    if RecommendedAction.BLOCK_PENDING_VERIFICATION in response.actions:
-        print("ACTION: Transaction blocked pending manual fraud investigation.")
-    elif RecommendedAction.RECOMMEND_SUPERVISOR_ESCALATION in response.actions:
-        print("ACTION: Transaction held; escalating to fraud supervisor.")
-    elif RecommendedAction.RECOMMEND_CALLBACK_VERIFICATION in response.actions:
-        print("ACTION: Halting transfer. Initiating out-of-band callback to account owner.")
-    elif RecommendedAction.RECOMMEND_MFA_STEP_UP in response.actions:
-        print("ACTION: Prompting user for biometric MFA verification.")
-    elif RecommendedAction.PROCEED in response.actions:
-        print("ACTION: Integrity verified. Releasing fund transfer.")
-
-except ConnectionError as e:
-    # Fail safe: do not release funds if verification service cannot be reached
-    print(f"Service unavailable: {e}. Defaulting to fail-safe manual review.")
-except APIError as e:
-    print(f"API returned error {e.status_code}: {e.message}. Holding transfer.")`;
-
-  const nodeSdkCode = `import {
-  VoiceIntegrityClient,
-  RiskAssessmentRequest,
-  EnrollmentStatus,
-  RecommendedAction,
-  APIError,
-  ConnectionError,
-} from "@voiceintegrity/sdk";
-
-// 1. Initialize client with base URL and API key
-const client = new VoiceIntegrityClient({
-  baseUrl: "https://api.voiceintegrity.bank.internal",
-  apiKey: "sec_key_live_12345",
-  timeoutMs: 2000,
+// Perform real-time voice verification
+const response = await fetch(\`\${BASE_URL}/v1/detect\`, {
+  method: 'POST',
+  headers: {
+    'X-API-Key': API_KEY,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    audio_pcm_base64: audioBase64,
+    sample_rate: 16000,
+  }),
 });
 
-// 2. Construct the assessment request from live call & transaction signals
-const request: RiskAssessmentRequest = {
-  call_session_id: "call-sess-987654",
-  tenant_id: "bank-retail-prod",
-  synthesis_signal: {
-    score: 0.85,
-    confidence: 0.92,
-    available: true,
-    detail: "Acoustic synthesis artifacts detected in high-frequency band",
-  },
-  speaker_match_signal: {
-    score: 0.78,
-    confidence: 0.88,
-    available: true,
-    detail: "Voice embedding vector mismatch against enrolled CFO baseline",
-  },
-  contextual_signal: {
-    score: 0.60,
-    confidence: 1.0,
-    available: true,
-    detail: "High-value wire transfer request ($250,000) to new overseas beneficiary",
-  },
-  enrollment_status: EnrollmentStatus.ENROLLED,
-};
+const result = await response.json();
+console.log(\`Verdict: \${result.verdict}\`);       // "real" or "fake"
+console.log(\`Score:   \${result.spoof_score}\`);    // 0.0 → 1.0
+console.log(\`Latency: \${result.latency_ms}ms\`);`;
 
-// 3. Call Assess and branch on recommended actions
-async function verifyAndReleaseFundTransfer() {
-  try {
-    const response = await client.assess(request);
-
-    console.log(\`Risk Score: \${response.risk_score.toFixed(2)} (Confidence: \${response.confidence.toFixed(2)})\`);
-    console.log(\`Explanation: \${response.explanation}\`);
-
-    if (response.actions.includes(RecommendedAction.BLOCK_PENDING_VERIFICATION)) {
-      console.log("ACTION: Transaction blocked pending manual fraud investigation.");
-    } else if (response.actions.includes(RecommendedAction.RECOMMEND_SUPERVISOR_ESCALATION)) {
-      console.log("ACTION: Transaction held; escalating to fraud supervisor.");
-    } else if (response.actions.includes(RecommendedAction.RECOMMEND_CALLBACK_VERIFICATION)) {
-      console.log("ACTION: Halting transfer. Initiating out-of-band callback to account owner.");
-    } else if (response.actions.includes(RecommendedAction.RECOMMEND_MFA_STEP_UP)) {
-      console.log("ACTION: Prompting user for biometric MFA verification.");
-    } else if (response.actions.includes(RecommendedAction.PROCEED)) {
-      console.log("ACTION: Integrity verified. Releasing fund transfer.");
-    }
-  } catch (error) {
-    if (error instanceof ConnectionError) {
-      console.error(\`Service unavailable: \${error.message}. Defaulting to fail-safe manual review.\`);
-    } else if (error instanceof APIError) {
-      console.error(\`API returned error \${error.statusCode}: \${error.message}. Holding transfer.\`);
-    }
-  }
-}
-
-verifyAndReleaseFundTransfer();`;
-
-  const pipelineProcessRequestJson = `{
-  "session_id": "call-sess-987654",
-  "tenant_id": "bank-retail-prod",
-  "subject_id": "cfo-john-doe",
-  "audio_pcm_base64": "UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=",
-  "sample_rate_hz": 16000,
-  "channels": 1,
-  "transcript": "Transfer $50,000 immediately to overseas account 449112",
-  "context_score": 0.65
-}`;
-
-  const pipelineProcessResponseJson = `{
-  "session_id": "call-sess-987654",
-  "tenant_id": "bank-retail-prod",
-  "degraded": false,
-  "synthesis_signal": {
-    "score": 0.85,
-    "confidence": 0.92,
-    "available": true,
-    "detail": "Acoustic spectral synthesis glitch detected"
-  },
-  "speaker_match_signal": {
-    "score": 0.78,
-    "confidence": 0.88,
-    "available": true,
-    "detail": "Embedding cosine mismatch against baseline"
-  },
-  "content_risk_signal": {
-    "score": 0.90,
-    "confidence": 0.95,
-    "available": true,
-    "detail": "Ollama LLM urgency & high-value transfer flag"
-  },
-  "risk_assessment": {
-    "risk_score": 0.92,
-    "confidence": 0.91,
-    "degraded": false,
-    "actions": ["RECOMMEND_SUPERVISOR_ESCALATION", "RECOMMEND_CALLBACK_VERIFICATION"],
-    "explanation": "Noisy-OR fused acoustic + content score 0.92 exceeds 0.70 threshold."
-  },
-  "final_action": "RECOMMEND_SUPERVISOR_ESCALATION",
-  "explanation": "High synthetic risk detected with voice mismatch and urgent transfer context."
-}`;
+  const endpoints = [
+    {
+      method: 'POST',
+      path: '/v1/detect',
+      title: 'Detect Deepfake Audio',
+      desc: 'Analyze a single audio sample for AI voice synthesis & cloning. Returns real vs. fake verdict and raw confidence score.',
+      auth: true,
+      tier: 'Free / Pro / Enterprise',
+      request: `{
+  "audio_pcm_base64": "UklGRiQAAABXQVZFZm10IBAAAAABAAEA...",
+  "sample_rate": 16000,
+  "session_id": "call-tenant-9941"
+}`,
+      response: `{
+  "session_id": "call-tenant-9941",
+  "verdict": "real",
+  "spoof_score": 0.0421,
+  "confidence": 0.9579,
+  "raw_logit": -2.8512,
+  "threshold": 0.5,
+  "latency_ms": 38.4,
+  "model_version": "Dhwani-v2.0",
+  "model_architecture": "DhwaniV2-ResNetSE-BiGRU-Attention",
+  "timestamp": "2026-09-18T16:00:00.000Z"
+}`,
+    },
+    {
+      method: 'POST',
+      path: '/v1/detect/batch',
+      title: 'Batch Audio Analysis',
+      desc: 'Submit up to 10 audio items concurrently for batch processing.',
+      auth: true,
+      tier: 'Pro+',
+      request: `{
+  "items": [
+    { "audio_pcm_base64": "<b64-1>", "sample_rate": 16000 },
+    { "audio_pcm_base64": "<b64-2>", "sample_rate": 16000 }
+  ]
+}`,
+      response: `{
+  "results": [ ... ],
+  "total_latency_ms": 114.2
+}`,
+    },
+    {
+      method: 'GET',
+      path: '/v1/usage',
+      title: 'Organization API Usage & Quota',
+      desc: 'Retrieve current API key usage, daily request counts, and remaining quota.',
+      auth: true,
+      tier: 'All Tiers',
+      response: `{
+  "api_key_id": "pv_live_0012",
+  "tier": "pro",
+  "detections_today": 1840,
+  "detections_this_month": 34200,
+  "daily_limit": 100000,
+  "remaining_today": 98160,
+  "avg_latency_ms": 36.4,
+  "verdicts": { "real": 1620, "fake": 220, "uncertain": 0 }
+}`,
+    },
+    {
+      method: 'GET',
+      path: '/v1/health',
+      title: 'Gateway & Model Health Check',
+      desc: 'Public health status endpoint for Dhwani 2 model availability.',
+      auth: false,
+      tier: 'Public',
+      response: `{
+  "status": "ok",
+  "model_loaded": true,
+  "model_version": "Dhwani-v2.0",
+  "model_architecture": "DhwaniV2-ResNetSE-BiGRU-Attention",
+  "uptime_seconds": 86400.0
+}`,
+    },
+  ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-12">
-      {/* Header */}
-      <div className="pb-6 border-b border-obsidian-700">
-        <div className="flex items-center gap-2">
-          <FileCode className="w-6 h-6 text-forensic-amber" />
-          <h1 className="font-serif text-3xl font-bold text-white">REST API & SDK Documentation</h1>
-        </div>
-        <p className="text-xs font-mono text-slate-400 mt-1">
-          Complete endpoint references, JSON schemas, and official Python/Node SDK code snippets
-        </p>
-      </div>
-
-      {/* Section 1: SDK Code Examples */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-serif text-2xl font-bold text-white">Official Client SDKs</h2>
-          <div className="flex items-center gap-2 bg-obsidian-900 p-1 rounded-lg border border-obsidian-700 font-mono text-xs">
-            <button
-              onClick={() => setActiveSdkTab('python')}
-              className={`px-3 py-1.5 rounded ${activeSdkTab === 'python'
-                  ? 'bg-forensic-amber text-obsidian-950 font-bold'
-                  : 'text-slate-400 hover:text-white'
-                }`}
-            >
-              Python (voiceintegrity)
-            </button>
-            <button
-              onClick={() => setActiveSdkTab('node')}
-              className={`px-3 py-1.5 rounded ${activeSdkTab === 'node'
-                  ? 'bg-forensic-amber text-obsidian-950 font-bold'
-                  : 'text-slate-400 hover:text-white'
-                }`}
-            >
-              Node.js (@voiceintegrity/sdk)
-            </button>
+    <div className="min-h-screen bg-white text-forest selection:bg-lemongrass py-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+        
+        {/* Header */}
+        <div className="space-y-2 pb-6 border-b border-forest/10">
+          <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold uppercase tracking-wider text-forest/70">
+            <Terminal size={14} className="text-forest" />
+            <span>Developer Reference</span>
           </div>
-        </div>
-
-        {activeSdkTab === 'python' ? (
-          <CodeBlock
-            code={pythonSdkCode}
-            language="python"
-            title="python / voiceintegrity SDK usage example"
-          />
-        ) : (
-          <CodeBlock
-            code={nodeSdkCode}
-            language="typescript"
-            title="Node.js / @voiceintegrity/sdk usage example"
-          />
-        )}
-      </section>
-
-      {/* Section 2: Core Endpoint Reference */}
-      <section className="space-y-6">
-        <h2 className="font-serif text-2xl font-bold text-white">Pipeline Endpoint Specifications</h2>
-
-        <div className="rounded-xl border border-obsidian-700 bg-obsidian-900 p-6 shadow-card-glow space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-obsidian-800">
-            <div className="flex items-center gap-3">
-              <span className="px-2.5 py-1 rounded bg-amber-500/20 text-amber-400 border border-amber-500/40 font-mono text-xs font-bold">
-                POST
-              </span>
-              <code className="font-mono text-sm text-white font-bold">/v1/pipeline/process</code>
-            </div>
-            <span className="text-xs font-mono text-slate-400">Target: Orchestrator (:8080)</span>
-          </div>
-
-          <p className="text-xs text-slate-300 font-sans leading-relaxed">
-            Main pipeline endpoint. Receives transient PCM audio base64, sample rate, optional transcript, and caller context score. Triggers feature extraction, parallel signal evaluation, Noisy-OR fusion, policy checking, and alert dispatching.
+          <h1 className="font-display text-4xl font-extrabold text-forest tracking-tight">
+            REST API & SDK Documentation
+          </h1>
+          <p className="text-sm text-forest/70">
+            Complete endpoint reference for the PrimeVector voice authenticity and deepfake detection gateway.
           </p>
+        </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-mono text-xs font-semibold text-slate-300 mb-2 uppercase">Request Payload (JSON)</h4>
-              <CodeBlock code={pipelineProcessRequestJson} language="json" title="Request Body" />
-            </div>
+        {/* Authentication Card */}
+        <section className="bg-sage-1 border border-forest/10 rounded-2xl p-8 spade-cut-md space-y-4">
+          <div className="flex items-center gap-2 text-forest font-display text-xl font-bold">
+            <Lock size={20} />
+            <h2>API Key Authentication</h2>
+          </div>
+          <p className="text-sm text-forest/80 leading-relaxed">
+            All API calls (except <code className="bg-white border border-forest/15 px-1.5 py-0.5 rounded font-mono text-xs text-forest">/v1/health</code>) require an API key passed in the <code className="bg-white border border-forest/15 px-1.5 py-0.5 rounded font-mono text-xs font-bold text-forest">X-API-Key</code> request header.
+          </p>
+          <CodeBlock
+            code={`curl -H "X-API-Key: pv_live_your_key_here" https://api.primevector.dev/v1/usage`}
+            language="bash"
+            title="cURL Authentication Header Example"
+          />
+        </section>
 
-            <div>
-              <h4 className="font-mono text-xs font-semibold text-slate-300 mb-2 uppercase">Response Payload (JSON)</h4>
-              <CodeBlock code={pipelineProcessResponseJson} language="json" title="Response Body" />
+        {/* SDK Tabs */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-2xl font-bold text-forest">Quickstart Code Snippets</h2>
+            <div className="flex items-center gap-2 bg-sage-1 p-1 rounded-lg border border-forest/10 font-mono text-xs">
+              <button
+                onClick={() => setActiveSdkTab('python')}
+                className={`px-4 py-2 rounded-md font-bold transition-all cursor-pointer ${
+                  activeSdkTab === 'python' ? 'bg-forest text-lemongrass shadow-sm' : 'text-forest/70 hover:text-forest'
+                }`}
+              >
+                Python SDK
+              </button>
+              <button
+                onClick={() => setActiveSdkTab('node')}
+                className={`px-4 py-2 rounded-md font-bold transition-all cursor-pointer ${
+                  activeSdkTab === 'node' ? 'bg-forest text-lemongrass shadow-sm' : 'text-forest/70 hover:text-forest'
+                }`}
+              >
+                Node.js SDK
+              </button>
             </div>
           </div>
-        </div>
-      </section>
+
+          <CodeBlock
+            code={activeSdkTab === 'python' ? pythonSdk : nodeSdk}
+            language={activeSdkTab === 'python' ? 'python' : 'javascript'}
+            title={activeSdkTab === 'python' ? 'Python — Detect Deepfake' : 'Node.js — Detect Deepfake'}
+          />
+        </section>
+
+        {/* Endpoints List */}
+        <section className="space-y-6">
+          <h2 className="font-display text-2xl font-bold text-forest">API Endpoints Reference</h2>
+
+          {endpoints.map((ep, i) => (
+            <div key={i} className="bg-white border border-forest/10 rounded-2xl p-6 sm:p-8 space-y-4 shadow-spade spade-cut-md">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-forest/10">
+                <div className="flex items-center gap-3">
+                  <span className={`px-3 py-1 rounded text-xs font-mono font-extrabold ${
+                    ep.method === 'POST' ? 'bg-forest text-lemongrass' : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                  }`}>
+                    {ep.method}
+                  </span>
+                  <code className="font-mono text-base font-bold text-forest">{ep.path}</code>
+                  <button
+                    onClick={() => copyToClipboard(ep.path, i)}
+                    className="text-forest/40 hover:text-forest transition-colors cursor-pointer"
+                  >
+                    {copiedEndpoint === i ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono font-semibold px-2.5 py-1 rounded bg-sage-1 text-forest border border-forest/10">
+                    {ep.tier}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-sm text-forest/80 font-normal">{ep.desc}</p>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
+                {ep.request && (
+                  <div>
+                    <h4 className="font-mono text-xs font-bold text-forest uppercase tracking-wider mb-2">Request Body</h4>
+                    <CodeBlock code={ep.request} language="json" title="Request Payload" />
+                  </div>
+                )}
+                <div>
+                  <h4 className="font-mono text-xs font-bold text-forest uppercase tracking-wider mb-2">Response Output</h4>
+                  <CodeBlock code={ep.response} language="json" title="Response Payload" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </section>
+
+      </div>
     </div>
   );
 }

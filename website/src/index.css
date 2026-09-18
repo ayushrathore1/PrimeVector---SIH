@@ -1,85 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  color-scheme: light;
+}
+
 @layer base {
-  body {
-    background-color: #07090E;
-    color: #F8FAFC;
+  html {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #18280E;
+    background-color: #FFFFFF;
+    scroll-behavior: smooth;
+  }
+  body, #root {
+    background-color: #FFFFFF;
+    color: #18280E;
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Ensure input text is dark forest green */
+  input, textarea, select, button {
+    color: #18280E;
   }
 }
 
-/* Custom Utilities for Security Aesthetic */
-.font-serif-heading {
-  font-family: 'Fraunces', Georgia, serif;
-}
-
-.font-mono-tech {
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.glow-amber-sm {
-  box-shadow: 0 0 15px -3px rgba(245, 158, 11, 0.2);
-}
-
-.glow-amber-lg {
-  box-shadow: 0 0 35px -5px rgba(245, 158, 11, 0.35);
-}
-
-.glow-emerald-sm {
-  box-shadow: 0 0 15px -3px rgba(16, 185, 129, 0.25);
-}
-
-.glow-crimson-sm {
-  box-shadow: 0 0 15px -3px rgba(239, 68, 68, 0.3);
-}
-
-.scanline {
-  background: linear-gradient(
-    to bottom,
-    rgba(255, 255, 255, 0),
-    rgba(255, 255, 255, 0) 50%,
-    rgba(0, 0, 0, 0.3) 50%,
-    rgba(0, 0, 0, 0.3)
+/* Spade Cut Corner Utilities */
+.spade-cut-sm {
+  clip-path: polygon(
+    8px 0%,
+    calc(100% - 8px) 0%,
+    100% 8px,
+    100% calc(100% - 8px),
+    calc(100% - 8px) 100%,
+    8px 100%,
+    0% calc(100% - 8px),
+    0% 8px
   );
-  background-size: 100% 4px;
 }
 
-.grid-background {
-  background-image: radial-gradient(rgba(245, 158, 11, 0.08) 1px, transparent 1px);
-  background-size: 24px 24px;
+.spade-cut-md {
+  clip-path: polygon(
+    14px 0%,
+    calc(100% - 14px) 0%,
+    100% 14px,
+    100% calc(100% - 14px),
+    calc(100% - 14px) 100%,
+    14px 100%,
+    0% calc(100% - 14px),
+    0% 14px
+  );
+}
+
+.spade-cut-lg {
+  clip-path: polygon(
+    20px 0%,
+    calc(100% - 20px) 0%,
+    100% 20px,
+    100% calc(100% - 20px),
+    calc(100% - 20px) 100%,
+    20px 100%,
+    0% calc(100% - 20px),
+    0% 20px
+  );
+}
+
+/* Background grid patterns */
+.bg-grid-spade {
+  background-image: radial-gradient(rgba(24, 40, 14, 0.12) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.bg-dot-pattern {
+  background-image: radial-gradient(rgba(24, 40, 14, 0.15) 1.5px, transparent 1.5px);
+  background-size: 20px 20px;
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0B0F17;
+  background: #F4F6F0;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1E293B;
-  border-radius: 4px;
+  background: #C2CBB2;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #F59E0B;
-}
-
-/* Barba.js transition overlay */
-.barba-transition-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: #0B0F17;
-  border-bottom: 2px solid #F59E0B;
-  z-index: 9999;
-  pointer-events: none;
-  transform: translateY(-100%);
+  background: #18280E;
 }
