@@ -150,8 +150,13 @@ class FusionAttention(nn.Module):
         )
 
     def forward(self, branch_features: list[torch.Tensor]) -> torch.Tensor:
+        if len(branch_features) == 1:
+            return branch_features[0]
+
         # Concatenate all branch features
         concat = torch.cat(branch_features, dim=1)
+        if concat.size(1) != self.total_dim:
+            return concat
 
         # Compute attention weights
         attn_logits = self.attention(concat)
@@ -159,7 +164,6 @@ class FusionAttention(nn.Module):
 
         # Weight each branch's features
         weighted_parts = []
-        idx = 0
         for i, feat in enumerate(branch_features):
             weight = attn_weights[:, i:i+1]  # (batch, 1)
             weighted_parts.append(feat * weight)
@@ -267,13 +271,19 @@ class DhwaniAdvanced(nn.Module):
         branch_outputs = [mel_feat]
 
         # Branch 2: Prosody
-        if self.use_prosody and prosody is not None:
-            prosody_feat = self.prosody_branch(prosody)
+        if self.use_prosody:
+            if prosody is not None:
+                prosody_feat = self.prosody_branch(prosody)
+            else:
+                prosody_feat = torch.zeros(mel.size(0), 64, device=mel.device)
             branch_outputs.append(prosody_feat)
 
         # Branch 3: SSL
-        if self.use_ssl and ssl is not None:
-            ssl_feat = self.ssl_branch(ssl)
+        if self.use_ssl:
+            if ssl is not None:
+                ssl_feat = self.ssl_branch(ssl)
+            else:
+                ssl_feat = torch.zeros(mel.size(0), 128, device=mel.device)
             branch_outputs.append(ssl_feat)
 
         # Fusion + classification

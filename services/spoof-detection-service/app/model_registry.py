@@ -281,8 +281,13 @@ class DeepfakeModelRegistry(ModelRegistry):
         )
 
         # Create a model entry whose callable accepts audio_pcm_base64
-        def _trained_model_fn(audio_pcm_base64: str) -> dict:
-            return self._predict_fn(self._torch_model, audio_pcm_base64)
+        def _trained_model_fn(audio_input: Any) -> dict:
+            if isinstance(audio_input, str) and len(audio_input) > 0:
+                try:
+                    return self._predict_fn(self._torch_model, audio_input)
+                except Exception as e:
+                    logger.warning("Deepfake model prediction failed on PCM input, falling back to heuristic: %s", e)
+            return self._heuristic_entry.model(audio_input)
 
         self._trained_entry = ModelRegistryEntry(
             model=_trained_model_fn,

@@ -79,19 +79,25 @@ class DhwaniModelRegistry:
         Set SPOOF_MODEL_REGISTRY_BACKEND=dhwani in environment.
     """
 
-    def __init__(self):
+    def __init__(self, checkpoint_path: Optional[str] = None):
         from model_registry import ModelRegistryEntry, _heuristic_model_fn
 
         self._entries = {}
 
         # Try to load Dhwani checkpoint
-        checkpoint_path = _find_checkpoint(_CHECKPOINT_SEARCH_PATHS)
-        advanced_path = _find_checkpoint(_ADVANCED_CHECKPOINT_PATHS)
+        if checkpoint_path is None:
+            ckpt_path = _find_checkpoint(_CHECKPOINT_SEARCH_PATHS)
+        elif os.path.isfile(checkpoint_path):
+            ckpt_path = os.path.abspath(checkpoint_path)
+        else:
+            ckpt_path = None
+
+        advanced_path = _find_checkpoint(_ADVANCED_CHECKPOINT_PATHS) if checkpoint_path is None else None
 
         if advanced_path is not None:
             self._load_advanced(advanced_path)
-        elif checkpoint_path is not None:
-            self._load_baseline(checkpoint_path)
+        elif ckpt_path is not None:
+            self._load_baseline(ckpt_path)
         else:
             logger.warning(
                 "No Dhwani checkpoint found in search paths: %s. "

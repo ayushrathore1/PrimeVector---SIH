@@ -88,6 +88,8 @@ class DhwaniBaseline(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.size(-1) < 16:
+            x = F.pad(x, (0, 16 - x.size(-1)))
         x = self.conv_blocks(x)
         x = self.global_pool(x)
         x = x.view(x.size(0), -1)
@@ -201,6 +203,8 @@ class DhwaniV2(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.size(-1) < 16:
+            x = F.pad(x, (0, 16 - x.size(-1)))
         x = self.stem(x)
         x = self.layer1(x)
         x = self.layer2(x)

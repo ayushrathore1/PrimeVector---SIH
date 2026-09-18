@@ -40,6 +40,7 @@ USAGE:
 
 import os
 import sys
+import io
 import csv
 import time
 import hashlib
@@ -47,6 +48,14 @@ import argparse
 import json
 from pathlib import Path
 from typing import Optional
+
+# Fix Windows console encoding for emoji/unicode
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+
+# Load .env from project root
+from dotenv import load_dotenv
+load_dotenv()
 
 # Audio processing
 import numpy as np
@@ -189,22 +198,34 @@ PROMPTS = {
 # ============================================================
 # Sarvam AI Voices (Bulbul v3)
 # ============================================================
+# Valid v3 speakers: aditya, ritu, ashutosh, priya, neha, rahul,
+# pooja, rohan, simran, kavya, amit, dev, ishita, shreya, ratan,
+# varun, manan, sumit, roopa, kabir, aayan, shubh, advait, anand,
+# tanya, tarun, sunny, mani, gokul, vijay, shruti, suhani, mohit,
+# kavitha, rehan, soham, rupali
 
 SARVAM_VOICES = {
-    "hi-IN": ["shubh", "ananya", "arjun", "manisha", "kunal"],
-    "en-IN": ["shubh", "ananya", "arjun", "manisha", "kunal"],
-    "mr-IN": ["shubh", "ananya", "arjun"],
-    "gu-IN": ["shubh", "ananya", "arjun"],
+    "hi-IN": ["shubh", "priya", "rahul", "simran", "aditya"],
+    "en-IN": ["shubh", "priya", "rahul", "simran", "aditya"],
+    "mr-IN": ["shubh", "priya", "rahul", "simran", "aditya"],
+    "gu-IN": ["shubh", "priya", "rahul", "simran", "aditya"],
 }
 
 # ============================================================
-# ElevenLabs Voices
+# ElevenLabs Voices (per-language, name -> voice_id)
 # ============================================================
+# Using free-tier compatible pre-made voice (George).
+# Library voices require a paid plan.
 
-ELEVENLABS_VOICES = [
-    "Rachel", "Domi", "Bella", "Antoni", "Elli",
-    "Josh", "Arnold", "Adam", "Sam",
-]
+ELEVENLABS_VOICES = {
+    "en-IN": {
+        "George": "JBFqnCBsd6RMkjVDRZzb",
+    },
+    "hi-IN": {
+        "George": "JBFqnCBsd6RMkjVDRZzb",
+    },
+}
+
 
 # ============================================================
 # Generator Functions
@@ -223,7 +244,7 @@ def generate_sarvam(api_key: str, output_dir: str, max_per_lang: int = 50):
     metadata = []
     
     print("=" * 60)
-    print("  🔊 GENERATING SARVAM AI TTS SAMPLES")
+    print("  GENERATING SARVAM AI TTS SAMPLES")
     print("=" * 60)
 
     for lang_code, prompts in PROMPTS.items():
@@ -234,7 +255,7 @@ def generate_sarvam(api_key: str, output_dir: str, max_per_lang: int = 50):
         voices = SARVAM_VOICES.get(lang_code, ["shubh"])
         count = 0
 
-        print(f"\n  Language: {lang_code} ({len(voices)} voices × {len(prompts)} prompts)")
+        print(f"\n  Language: {lang_code} ({len(voices)} voices x {len(prompts)} prompts)")
 
         for prompt_idx, prompt in enumerate(prompts):
             if count >= max_per_lang:
@@ -253,9 +274,14 @@ def generate_sarvam(api_key: str, output_dir: str, max_per_lang: int = 50):
                         language_code=lang_code,
                         speaker=voice,
                         pace=pace,
+                        model="bulbul:v3",
                     )
 
-                    audio_bytes = base64.b64decode(response.audio)
+                    # SDK v0.1.33+: response.audios is a list of base64 strings
+                    if not response.audios or len(response.audios) == 0:
+                        print(f"    [WARN] Empty response for {voice}, prompt {prompt_idx}")
+                        continue
+                    audio_bytes = base64.b64decode(response.audios[0])
 
                     # Save raw then convert to 16kHz mono WAV
                     temp_path = os.path.join(lang_dir, f"_temp_{count}.wav")
@@ -299,17 +325,21 @@ def generate_sarvam(api_key: str, output_dir: str, max_per_lang: int = 50):
                     time.sleep(0.5)
 
                 except Exception as e:
-                    print(f"    ⚠️  Sarvam error ({voice}, prompt {prompt_idx}): {e}")
+                    print(f"    [WARN] Sarvam error ({voice}, prompt {prompt_idx}): {e}")
                     time.sleep(1)
                     continue
 
-        print(f"  ✅ {lang_code}: {count} samples generated")
+        print(f"  [OK] {lang_code}: {count} samples generated")
 
     return metadata
 
 
 def generate_elevenlabs(api_key: str, output_dir: str, max_per_lang: int = 50):
-    """Generate spoof samples using ElevenLabs TTS."""
+    """Generate spoof samples using ElevenLabs TTS.
+
+    SDK v2.68+: Uses client.text_to_speech.convert(voice_id=...) with
+    eleven_v3 model. Voice IDs are per-language from ELEVENLABS_VOICES.
+    """
     try:
         from elevenlabs.client import ElevenLabs
     except ImportError:
@@ -320,37 +350,45 @@ def generate_elevenlabs(api_key: str, output_dir: str, max_per_lang: int = 50):
     metadata = []
 
     print("=" * 60)
-    print("  🔊 GENERATING ELEVENLABS TTS SAMPLES")
+    print("  GENERATING ELEVENLABS TTS SAMPLES")
     print("=" * 60)
 
-    # ElevenLabs primarily English + Hindi
-    el_langs = {
-        "en-IN": PROMPTS["en-IN"],
-        "hi-IN": PROMPTS["hi-IN"],
-    }
+    # Show configured voices per language
+    for lang_code, voices in ELEVENLABS_VOICES.items():
+        print(f"\n  {lang_code}: {len(voices)} voices")
+        for name, vid in voices.items():
+            print(f"    {name} -> {vid}")
 
-    for lang_code, prompts in el_langs.items():
+    # Generate for each language that has both prompts and voices
+    for lang_code, voices in ELEVENLABS_VOICES.items():
+        if lang_code not in PROMPTS:
+            print(f"\n  [SKIP] {lang_code}: no prompts configured")
+            continue
+
+        prompts = PROMPTS[lang_code]
         lang_short = lang_code.split("-")[0]
         lang_dir = os.path.join(output_dir, "elevenlabs", lang_short)
         os.makedirs(lang_dir, exist_ok=True)
 
+        voice_items = list(voices.items())  # [(name, voice_id), ...]
         count = 0
 
-        print(f"\n  Language: {lang_code} ({len(ELEVENLABS_VOICES)} voices)")
+        print(f"\n  Language: {lang_code} ({len(voice_items)} voices x {len(prompts)} prompts)")
 
         for prompt_idx, prompt in enumerate(prompts):
             if count >= max_per_lang:
                 break
 
-            for voice in ELEVENLABS_VOICES:
+            for voice_name, voice_id in voice_items:
                 if count >= max_per_lang:
                     break
 
                 try:
-                    audio_gen = client.generate(
+                    audio_gen = client.text_to_speech.convert(
+                        voice_id=voice_id,
                         text=prompt,
-                        voice=voice,
-                        model="eleven_multilingual_v2",
+                        model_id="eleven_v3",
+                        output_format="mp3_44100_128",
                     )
 
                     # Collect audio chunks
@@ -358,12 +396,11 @@ def generate_elevenlabs(api_key: str, output_dir: str, max_per_lang: int = 50):
                     for chunk in audio_gen:
                         audio_chunks += chunk
 
-                    # Save as temp mp3 then convert
+                    # Save as temp mp3 then convert to 16kHz WAV
                     temp_path = os.path.join(lang_dir, f"_temp_{count}.mp3")
                     with open(temp_path, "wb") as f:
                         f.write(audio_chunks)
 
-                    # Load and resample to 16kHz mono WAV
                     y, sr = librosa.load(temp_path, sr=SAMPLE_RATE, mono=True)
                     os.remove(temp_path)
 
@@ -371,7 +408,7 @@ def generate_elevenlabs(api_key: str, output_dir: str, max_per_lang: int = 50):
                         continue
 
                     sample_id = hashlib.md5(
-                        f"elevenlabs_{lang_code}_{voice}_{prompt_idx}".encode()
+                        f"elevenlabs_{lang_code}_{voice_name}_{prompt_idx}".encode()
                     ).hexdigest()[:12]
 
                     filename = f"{sample_id}.wav"
@@ -380,12 +417,12 @@ def generate_elevenlabs(api_key: str, output_dir: str, max_per_lang: int = 50):
 
                     metadata.append({
                         "sample_id": sample_id,
-                        "speaker_id": f"elevenlabs_{voice.lower()}",
+                        "speaker_id": f"elevenlabs_{voice_name.lower().replace('-', '_')}",
                         "language": lang_short,
                         "duration": round(len(y) / SAMPLE_RATE, 2),
                         "source": "elevenlabs",
-                        "generator": f"elevenlabs_v2_{voice.lower()}",
-                        "voice": voice,
+                        "generator": f"elevenlabs_v3_{voice_name.lower().replace('-', '_')}",
+                        "voice": voice_name,
                         "pace": 1.0,
                         "label": "spoof",
                         "attack_type": "tts",
@@ -399,11 +436,11 @@ def generate_elevenlabs(api_key: str, output_dir: str, max_per_lang: int = 50):
                     time.sleep(0.3)
 
                 except Exception as e:
-                    print(f"    ⚠️  ElevenLabs error ({voice}, prompt {prompt_idx}): {e}")
+                    print(f"    [WARN] ElevenLabs error ({voice_name}, prompt {prompt_idx}): {e}")
                     time.sleep(1)
                     continue
 
-        print(f"  ✅ {lang_code}: {count} samples generated")
+        print(f"  [OK] {lang_code}: {count} samples generated")
 
     return metadata
 
@@ -434,7 +471,7 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
 
     print("=" * 60)
-    print("  🎭 DHWANI SPOOF DATASET GENERATOR")
+    print("  DHWANI SPOOF DATASET GENERATOR")
     print("=" * 60)
     print(f"  Output: {args.output_dir}")
     print(f"  Max samples per language per source: {args.max_per_lang}")
@@ -448,7 +485,7 @@ def main():
             all_metadata.extend(sarvam_meta)
             print(f"\n  Sarvam total: {len(sarvam_meta)} samples")
         else:
-            print("\n  ⚠️  No Sarvam API key. Skipping. Set --sarvam-key or SARVAM_API_KEY env var.")
+            print("\n  [SKIP] No Sarvam API key. Set --sarvam-key or SARVAM_API_KEY env var.")
 
     # ElevenLabs
     if not args.sarvam_only:
@@ -457,7 +494,7 @@ def main():
             all_metadata.extend(el_meta)
             print(f"\n  ElevenLabs total: {len(el_meta)} samples")
         else:
-            print("\n  ⚠️  No ElevenLabs API key. Skipping. Set --elevenlabs-key or ELEVENLABS_API_KEY env var.")
+            print("\n  [SKIP] No ElevenLabs API key. Set --elevenlabs-key or ELEVENLABS_API_KEY env var.")
 
     # Save manifest
     manifest_path = os.path.join(args.output_dir, "manifest.csv")
@@ -473,7 +510,7 @@ def main():
     unique_voices = len(set(m["speaker_id"] for m in all_metadata))
 
     print("\n" + "=" * 60)
-    print("  📊 GENERATION COMPLETE")
+    print("  GENERATION COMPLETE")
     print("=" * 60)
     print(f"  Total samples:  {len(all_metadata)}")
     print(f"  Total duration: {total_duration / 60:.1f} minutes")
