@@ -101,7 +101,7 @@ cp dhwani_baseline_v2.pt ml/dhwani/checkpoints/
 
 # Set environment
 export SPOOF_MODEL_REGISTRY_BACKEND=dhwani
-
+z
 # Start service
 cd services/spoof-detection-service
 uvicorn app.main:app --host 0.0.0.0 --port 8002

@@ -53,6 +53,15 @@ ml/dhwani/.hf_cache/
 ml/dhwani/checkpoints/
 ml/dhwani/logs/
 ml/dhwani/notebooks/.ipynb_checkpoints/
+ml/dhwani/spoof_generated/
+ml/dhwani/spoof_generated.zip
+
+# Audio files (training data, test recordings)
+*.wav
+*.mp3
+*.ogg
+*.m4a
+*.flac
 
 # Model checkpoints (large binary files)
 *.pt
