@@ -45,6 +45,23 @@ class PipelineRequest(BaseModel):
         description="Conversation transcript for content-risk analysis. "
                     "PII-redacted by the caller before sending.",
     )
+    caller_id_spoof_risk: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="SIP header / caller ID spoofing risk indicator.",
+    )
+    sip_packet_jitter_ms: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="VoIP packet jitter in milliseconds.",
+    )
+    codec_anomaly_score: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Codec re-encoding anomaly score.",
+    )
 
 
 # -----------------------------------------------------------------------
@@ -212,6 +229,7 @@ class PipelineResponse(BaseModel):
     synthesis_signal: Optional[SynthesisSignalResponse] = None
     speaker_match_signal: Optional[SignalIn] = None
     content_risk_signal: Optional[SignalIn] = None
+    sip_telemetry_signal: Optional[SignalIn] = None
     risk_assessment: Optional[RiskAssessmentResponse] = None
     policy_decision: Optional[PolicyDecision] = None
     alert_event: Optional[EventAcceptedResponse] = None

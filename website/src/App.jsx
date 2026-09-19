@@ -9,6 +9,9 @@ import ApiDocsPage from './pages/ApiDocsPage';
 import PricingPage from './pages/PricingPage';
 import UsagePage from './pages/UsagePage';
 import AboutPage from './pages/AboutPage';
+import StatusPage from './pages/StatusPage';
+import LiveStreamPage from './pages/LiveStreamPage';
+import AndroidPage from './pages/AndroidPage';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
@@ -27,6 +30,12 @@ export default function App() {
         return <UsagePage />;
       case 'about':
         return <AboutPage />;
+      case 'status':
+        return <StatusPage />;
+      case 'stream':
+        return <LiveStreamPage />;
+      case 'android':
+        return <AndroidPage />;
       default:
         return <HomePage setActiveTab={setActiveTab} />;
     }

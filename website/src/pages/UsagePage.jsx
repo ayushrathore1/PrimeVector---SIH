@@ -1,60 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import { BarChart3, Key, Clock, ShieldCheck, ShieldAlert, Trash2, Plus, Copy, Check, HelpCircle, Activity } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { BarChart3, Key, Clock, ShieldCheck, ShieldAlert, Trash2, Plus, Copy, Check, HelpCircle, Activity, RefreshCw } from 'lucide-react';
 import UsageChart from '../components/UsageChart';
 import { getUsage, getUsageHistory, getRecentDetections } from '../utils/api';
 
-const DEMO_API_KEY = 'pv_live_demo_000000000000000000000000';
+const DEFAULT_API_KEY = 'pv_live_demo_000000000000000000000000';
 
-const DEMO_USAGE = {
-  api_key_id: 'key-demo-001',
-  tier: 'pro',
-  detections_today: 1840,
-  detections_this_month: 34200,
-  daily_limit: 100000,
-  monthly_limit: 1000000,
-  remaining_today: 98160,
-  avg_latency_ms: 36.4,
-  verdicts: { real: 1620, fake: 220, uncertain: 0 },
+const EMPTY_USAGE = {
+  api_key_id: '',
+  tier: 'free',
+  detections_today: 0,
+  detections_this_month: 0,
+  daily_limit: 0,
+  monthly_limit: 0,
+  remaining_today: 0,
+  avg_latency_ms: 0,
+  verdicts: { real: 0, fake: 0, uncertain: 0 },
 };
 
-const DEMO_HISTORY = Array.from({ length: 14 }, (_, i) => {
-  const d = new Date();
-  d.setDate(d.getDate() - (13 - i));
-  const total = Math.floor(Math.random() * 120) + 40;
-  const fake = Math.floor(total * (0.15 + Math.random() * 0.2));
-  const uncertain = 0;
-  return {
-    date: d.toISOString().split('T')[0],
-    detections: total,
-    real_count: total - fake - uncertain,
-    fake_count: fake,
-    uncertain_count: uncertain,
-    avg_latency_ms: 32 + Math.random() * 14,
-  };
-});
-
-const DEMO_DETECTIONS = Array.from({ length: 10 }, (_, i) => ({
-  session_id: `pv-live-${(1000 + i).toString(36)}`,
-  timestamp: new Date(Date.now() - i * 180000).toISOString(),
-  verdict: ['real', 'fake', 'real', 'real', 'real', 'fake', 'real', 'real', 'real', 'fake'][i],
-  spoof_score: [0.04, 0.94, 0.08, 0.02, 0.06, 0.89, 0.03, 0.07, 0.05, 0.91][i],
-  confidence: [0.96, 0.88, 0.92, 0.98, 0.94, 0.78, 0.97, 0.93, 0.95, 0.82][i],
-  latency_ms: [36, 41, 34, 38, 32, 45, 35, 37, 33, 40][i],
-}));
-
 export default function UsagePage() {
-  const [apiKey, setApiKey] = useState(DEMO_API_KEY);
-  const [usage, setUsage] = useState(DEMO_USAGE);
-  const [history, setHistory] = useState(DEMO_HISTORY);
-  const [detections, setDetections] = useState(DEMO_DETECTIONS);
+  const [apiKey, setApiKey] = useState(DEFAULT_API_KEY);
+  const [usage, setUsage] = useState(EMPTY_USAGE);
+  const [history, setHistory] = useState([]);
+  const [detections, setDetections] = useState([]);
   const [isLive, setIsLive] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, [apiKey]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    setRefreshing(true);
     const [usageRes, histRes, detRes] = await Promise.all([
       getUsage(apiKey),
       getUsageHistory(apiKey),
@@ -62,14 +36,23 @@ export default function UsagePage() {
     ]);
 
     if (usageRes.success) { setUsage(usageRes.data); setIsLive(true); }
-    else { setUsage(DEMO_USAGE); setIsLive(false); }
+    else { setUsage(EMPTY_USAGE); setIsLive(false); }
 
     if (histRes.success) setHistory(histRes.data.entries || []);
-    else setHistory(DEMO_HISTORY);
+    else setHistory([]);
 
     if (detRes.success) setDetections(detRes.data.detections || []);
-    else setDetections(DEMO_DETECTIONS);
-  };
+    else setDetections([]);
+
+    setLastRefreshed(new Date().toLocaleTimeString());
+    setRefreshing(false);
+  }, [apiKey]);
+
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(loadData, 15000);
+    return () => clearInterval(interval);
+  }, [loadData]);
 
   const usedPct = usage.daily_limit > 0 ? Math.round((usage.detections_today / usage.daily_limit) * 100) : 0;
 
@@ -95,12 +78,34 @@ export default function UsagePage() {
             </h1>
           </div>
 
-          {!isLive && (
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-lemongrass/30 border border-forest/20 text-forest font-mono text-xs font-semibold">
-              <HelpCircle size={14} />
-              <span>DEMO MODE ACTIVE — Live API endpoints responsive</span>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {isLive ? (
+              <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 font-mono text-xs font-semibold">
+                <Activity size={14} className="animate-pulse" />
+                <span>LIVE — Backend Connected</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-100 border border-amber-300 text-amber-900 font-mono text-xs font-semibold">
+                <HelpCircle size={14} />
+                <span>OFFLINE — Backend Unreachable</span>
+              </div>
+            )}
+
+            <button
+              onClick={loadData}
+              disabled={refreshing}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-sage-1 border border-forest/15 hover:border-forest/40 text-forest font-mono text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+            >
+              <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+              <span>{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+            </button>
+
+            {lastRefreshed && (
+              <span className="text-[11px] font-mono text-forest/60 hidden sm:block">
+                Updated: {lastRefreshed}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* API Key Bar */}
@@ -179,7 +184,15 @@ export default function UsagePage() {
         {/* Chart */}
         <div className="bg-white border border-forest/10 rounded-2xl p-6 sm:p-8 space-y-4 shadow-spade spade-cut-md">
           <h3 className="font-display text-xl font-bold text-forest">Detection Stream Throughput (14 Days)</h3>
-          <UsageChart data={history} />
+          {history.length > 0 ? (
+            <UsageChart data={history} />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <BarChart3 size={40} className="text-forest/20 mb-3" />
+              <p className="text-sm font-semibold text-forest/50">No usage history yet</p>
+              <p className="text-xs text-forest/40 mt-1">Detection data will appear here once API calls are made</p>
+            </div>
+          )}
         </div>
 
         {/* Recent Detections Log Table */}
@@ -188,7 +201,7 @@ export default function UsagePage() {
             <span className="font-mono text-xs font-bold text-forest uppercase tracking-wider">
               Recent Detection Logs ({detections.length})
             </span>
-            <span className="text-xs font-mono text-forest/60">Dhwani 2 Engine</span>
+            <span className="text-xs font-mono text-forest/60">DhVani 2 Engine</span>
           </div>
 
           <div className="overflow-x-auto">
@@ -204,29 +217,42 @@ export default function UsagePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-forest/5 text-forest/80">
-                {detections.map((det, i) => (
-                  <tr key={i} className="hover:bg-sage-1/50 transition-colors">
-                    <td className="py-3 px-4 text-forest/60 whitespace-nowrap">
-                      {new Date(det.timestamp).toLocaleTimeString()}
+                {detections.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center">
+                      <div className="flex flex-col items-center">
+                        <Activity size={32} className="text-forest/20 mb-2" />
+                        <p className="text-sm font-semibold text-forest/50">No detections recorded yet</p>
+                        <p className="text-xs text-forest/40 mt-1">Run detections via the API to see real-time logs here</p>
+                      </div>
                     </td>
-                    <td className="py-3 px-4 text-forest font-bold whitespace-nowrap">{det.session_id}</td>
-                    <td className="py-3 px-4 whitespace-nowrap">
-                      <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase ${
-                        det.verdict === 'real'
-                          ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-                          : det.verdict === 'fake'
-                          ? 'bg-rose-100 text-rose-900 border border-rose-300'
-                          : 'bg-amber-100 text-amber-900 border border-amber-300'
-                      }`}>
-                        {det.verdict}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 font-bold">{det.spoof_score.toFixed(4)}</td>
-                    <td className="py-3 px-4">{(det.confidence * 100).toFixed(1)}%</td>
-                    <td className="py-3 px-4 text-emerald-700 font-bold">{det.latency_ms} ms</td>
                   </tr>
-                ))}
+                ) : (
+                  detections.map((det, i) => (
+                    <tr key={i} className="hover:bg-sage-1/50 transition-colors">
+                      <td className="py-3 px-4 text-forest/60 whitespace-nowrap">
+                        {new Date(det.timestamp).toLocaleTimeString()}
+                      </td>
+                      <td className="py-3 px-4 text-forest font-bold whitespace-nowrap">{det.session_id}</td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase ${
+                          det.verdict === 'real'
+                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                            : det.verdict === 'fake'
+                            ? 'bg-rose-100 text-rose-900 border border-rose-300'
+                            : 'bg-amber-100 text-amber-900 border border-amber-300'
+                        }`}>
+                          {det.verdict}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 font-bold">{det.spoof_score.toFixed(4)}</td>
+                      <td className="py-3 px-4">{(det.confidence * 100).toFixed(1)}%</td>
+                      <td className="py-3 px-4 text-emerald-700 font-bold">{det.latency_ms} ms</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
+
             </table>
           </div>
         </div>

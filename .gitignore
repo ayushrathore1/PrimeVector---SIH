@@ -55,6 +55,7 @@ ml/dhwani/logs/
 ml/dhwani/notebooks/.ipynb_checkpoints/
 ml/dhwani/spoof_generated/
 ml/dhwani/spoof_generated.zip
+ml/dhwani/notebooks/*.zip
 
 # Audio files (training data, test recordings)
 *.wav

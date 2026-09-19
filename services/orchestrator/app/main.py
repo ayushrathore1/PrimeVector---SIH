@@ -55,8 +55,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+_client: PipelineClient | None = None
+
 def _get_client() -> PipelineClient:
-    """Return a fresh PipelineClient bound to current event loop."""
+    """Return a fresh PipelineClient bound to current event loop or test override."""
+    global _client
+    if _client is not None:
+        return _client
     return PipelineClient()
 
 
@@ -120,24 +125,25 @@ async def _do_process_pipeline(req: PipelineRequest) -> PipelineResponse:
 
     if extraction is None:
         logger.warning(
-            "session=%s: feature extraction returned None — using acoustic fallback",
+            "session=%s: feature extraction returned None — using acoustic fallback for pipeline",
             req.session_id,
         )
         from models import ExtractionResponse, LogMelFeatures
-        extraction = ExtractionResponse(
+        extraction_for_downstream = ExtractionResponse(
             request_id=req.session_id,
             log_mel=LogMelFeatures(frames=[[0.0] * 128 for _ in range(10)], n_mels=128),
             speaker_embedding=[0.0] * 192,
             duration_ms=5000.0,
         )
-
-    response.extraction = extraction
+    else:
+        response.extraction = extraction
+        extraction_for_downstream = extraction
 
     # ---- Step 2: Parallel — spoof detection + enrollment check + content risk ----
     # Flatten log_mel frames to a 1-D feature vector for the spoof
     # detector (it expects a flat float list, not a 2-D frame array).
     flat_features = [
-        val for frame in extraction.log_mel.frames for val in frame
+        val for frame in extraction_for_downstream.log_mel.frames for val in frame
     ]
 
     spoof_task = client.detect_spoof(
@@ -193,7 +199,7 @@ async def _do_process_pipeline(req: PipelineRequest) -> PipelineResponse:
         match_result = await client.match_speaker(
             tenant_id=req.tenant_id,
             subject_id=req.subject_id,
-            live_embedding=extraction.speaker_embedding,
+            live_embedding=extraction_for_downstream.speaker_embedding,
         )
         if match_result is not None:
             speaker_match_signal = match_result
@@ -228,6 +234,16 @@ async def _do_process_pipeline(req: PipelineRequest) -> PipelineResponse:
             detail=content_risk_result.detail,
         )
         response.content_risk_signal = content_risk_signal
+
+    # -- Build SIP telemetry signal --
+    sip_score = max(req.caller_id_spoof_risk, req.codec_anomaly_score)
+    sip_telemetry_signal = SignalIn(
+        score=sip_score,
+        confidence=0.95 if (req.caller_id_spoof_risk > 0 or req.sip_packet_jitter_ms > 0) else 0.50,
+        available=True,
+        detail=f"SIP Telemetry (spoof_risk={req.caller_id_spoof_risk:.2f}, jitter={req.sip_packet_jitter_ms:.1f}ms, codec_anomaly={req.codec_anomaly_score:.2f})",
+    )
+    response.sip_telemetry_signal = sip_telemetry_signal
 
     # -- Build contextual signal --
     contextual_signal = SignalIn(

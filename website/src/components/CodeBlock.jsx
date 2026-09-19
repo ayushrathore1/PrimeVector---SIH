@@ -11,21 +11,21 @@ export default function CodeBlock({ code, language = 'python', title = '' }) {
   };
 
   return (
-    <div className="rounded-lg border border-obsidian-700 bg-obsidian-900 overflow-hidden shadow-card-glow font-mono-tech text-xs">
-      <div className="flex items-center justify-between px-4 py-2.5 bg-obsidian-850 border-b border-obsidian-700">
-        <div className="flex items-center gap-2 text-slate-400">
-          <Terminal size={14} className="text-forensic-amber" />
-          <span className="font-medium text-slate-300">{title || language}</span>
+    <div className="rounded-xl border border-forest/20 bg-forest text-white overflow-hidden shadow-spade spade-cut-sm font-mono text-xs">
+      <div className="flex items-center justify-between px-4 py-2.5 bg-forest-dark border-b border-white/10">
+        <div className="flex items-center gap-2">
+          <Terminal size={14} className="text-lemongrass" />
+          <span className="font-bold text-xs text-white/90 font-mono tracking-wide">{title || language}</span>
         </div>
         <button
           onClick={copyToClipboard}
-          className="flex items-center gap-1.5 px-2 py-1 rounded bg-obsidian-800 hover:bg-obsidian-700 text-slate-400 hover:text-slate-200 transition-colors"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-white/80 hover:text-white transition-colors cursor-pointer text-xs font-mono font-semibold"
           title="Copy code"
         >
           {copied ? (
             <>
-              <Check size={13} className="text-emerald-400" />
-              <span className="text-emerald-400">Copied</span>
+              <Check size={13} className="text-lemongrass" />
+              <span className="text-lemongrass">Copied</span>
             </>
           ) : (
             <>
@@ -35,7 +35,7 @@ export default function CodeBlock({ code, language = 'python', title = '' }) {
           )}
         </button>
       </div>
-      <div className="p-4 overflow-x-auto text-slate-300 leading-relaxed max-h-[480px]">
+      <div className="p-4 overflow-x-auto text-sage-1 leading-relaxed max-h-[480px]">
         <pre className="font-mono text-xs">
           <code>{code}</code>
         </pre>
@@ -43,3 +43,4 @@ export default function CodeBlock({ code, language = 'python', title = '' }) {
     </div>
   );
 }
+

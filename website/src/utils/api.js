@@ -209,7 +209,25 @@ export async function checkHealth() {
   }
 }
 
-// ── Legacy: check service health (for status page compat) ──
+// ── Microservices Registry ────────────────────────────────
+
+/**
+ * Complete registry of PrimeVector platform microservices.
+ * Each entry maps to a containerized service with its health endpoint.
+ */
+export const MICROSERVICES = [
+  { id: 'risk-fusion',       name: 'Risk Fusion Engine',          port: 8000, desc: 'Noisy-OR multi-signal risk fusion with deterministic scoring' },
+  { id: 'feature-extract',   name: 'Feature Extraction Service',  port: 8001, desc: 'Log-Mel + Delta + Delta² 3-channel spectrogram extraction' },
+  { id: 'spoof-detection',   name: 'Spoof Detection / DhVani',    port: 8002, desc: 'DhVani v2 neural deepfake classifier (ResNet-SE + BiGRU)' },
+  { id: 'enrollment',        name: 'Enrollment Service',          port: 8003, desc: 'Voiceprint enrollment, matching & speaker verification' },
+  { id: 'policy-threshold',  name: 'Policy Threshold Engine',     port: 8004, desc: 'Configurable per-tenant risk thresholds & auto-block gate' },
+  { id: 'alerting',          name: 'Alerting Service',            port: 8005, desc: 'Real-time alert dispatch (webhook, email, SMS, Slack)' },
+  { id: 'orchestrator',      name: 'Pipeline Orchestrator',       port: 8080, desc: 'End-to-end call processing pipeline coordinator' },
+  { id: 'ingestion-gateway', name: 'Ingestion Gateway',           port: 8006, desc: 'Go-based high-throughput audio frame ingestion endpoint' },
+  { id: 'api-gateway',       name: 'API Gateway',                 port: 8090, desc: 'Public REST API for detection, keys, usage & metering' },
+];
+
+// ── Service Health Check ──────────────────────────────────
 
 export async function checkServiceHealth(port) {
   const startTime = performance.now();
@@ -224,5 +242,29 @@ export async function checkServiceHealth(port) {
     return { status: 'degraded', statusCode: resp.status, latencyMs: latency };
   } catch {
     return { status: 'offline', statusCode: 0, latencyMs: Math.round(performance.now() - startTime) };
+  }
+}
+
+// ── Orchestrator Pipeline ─────────────────────────────────
+
+/**
+ * Execute a full pipeline process via the orchestrator.
+ * Used by the LiveStreamPage to process real call data through the pipeline.
+ */
+export async function executePipelineProcess(payload) {
+  const startTime = performance.now();
+  try {
+    const resp = await fetch('/api/8080/v1/pipeline/process', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const latencyMs = Math.round(performance.now() - startTime);
+    if (!resp.ok) {
+      return { success: false, latencyMs, error: `HTTP ${resp.status}` };
+    }
+    return { success: true, latencyMs, data: await resp.json() };
+  } catch (err) {
+    return { success: false, latencyMs: Math.round(performance.now() - startTime), error: err.message };
   }
 }

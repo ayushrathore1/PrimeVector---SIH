@@ -6,44 +6,29 @@ import AudioRecorder from '../components/AudioRecorder';
 import DetectionResult from '../components/DetectionResult';
 import { detectAudio } from '../utils/api';
 
-const DEMO_API_KEY = 'pv_live_demo_000000000000000000000000';
+const DEFAULT_API_KEY = 'pv_live_demo_000000000000000000000000';
 
 export default function DetectPage() {
   const [mode, setMode] = useState('upload'); // 'upload' | 'record'
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const [apiKey, setApiKey] = useState(DEMO_API_KEY);
+  const [apiKey, setApiKey] = useState(DEFAULT_API_KEY);
 
   const handleDetect = async (file) => {
     setIsProcessing(true);
     setResult(null);
     setError(null);
 
-    const startTime = performance.now();
     const resp = await detectAudio(file, apiKey);
 
     if (resp.success && resp.data) {
       setResult(resp.data);
     } else {
-      // Demo simulation fallback
-      const latency = Math.round(performance.now() - startTime);
-      const demoScore = Math.random() > 0.5 ? 0.86 + Math.random() * 0.11 : 0.04 + Math.random() * 0.14;
-      const verdict = demoScore > 0.6 ? 'fake' : demoScore < 0.4 ? 'real' : 'uncertain';
-
-      setResult({
-        session_id: `pv-demo-${Date.now().toString(36)}`,
-        verdict,
-        spoof_score: parseFloat(demoScore.toFixed(4)),
-        confidence: parseFloat((Math.abs(demoScore - 0.5) * 2).toFixed(4)),
-        raw_logit: parseFloat((Math.log(demoScore / (1 - demoScore))).toFixed(4)),
-        threshold: 0.5,
-        latency_ms: latency || 39.4,
-        model_version: 'Dhwani-v2.0',
-        model_architecture: 'DhwaniV2-ResNetSE-BiGRU-Attention',
-        timestamp: new Date().toISOString(),
-        _demo: true,
-      });
+      setError(
+        resp.error?.message || resp.error?.detail || resp.error ||
+        'Unable to reach the detection service. Ensure the API Gateway is running and the API key is valid.'
+      );
     }
 
     setIsProcessing(false);
@@ -62,13 +47,13 @@ export default function DetectPage() {
         <div className="space-y-2 pb-6 border-b border-forest/15">
           <div className="inline-flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-wider text-forest">
             <Sparkles size={14} className="text-forest" />
-            <span>DHWANI 2 NEURAL ANALYSIS</span>
+            <span>ENTERPRISE MULTI-VECTOR FIREWALL</span>
           </div>
           <h1 className="font-display text-4xl font-extrabold text-forest tracking-tight">
-            Voice Deepfake & Authenticity Detector
+            Voice Integrity & Anti-Impersonation Detector
           </h1>
           <p className="text-sm text-forest font-medium leading-relaxed">
-            Upload an audio sample or capture live voice input to evaluate spectral and phase consistency with sub-50ms inference.
+            Real-time defense fusing <strong>Acoustic Forensics (DhVani 2)</strong>, <strong>Speaker Voiceprint Matching</strong>, <strong>Conversational Vishing NLP</strong>, and <strong>SIP Call Metadata</strong> in under 50ms.
           </p>
         </div>
 
@@ -86,7 +71,7 @@ export default function DetectPage() {
             />
           </div>
           <span className="text-[11px] font-mono font-extrabold px-3 py-1 rounded bg-forest text-lemongrass shadow-sm">
-            {apiKey === DEMO_API_KEY ? 'DEMO TESTER MODE' : 'LIVE API ACTIVE'}
+            {apiKey ? 'API KEY ACTIVE' : 'NO API KEY'}
           </span>
         </div>
 
@@ -154,7 +139,7 @@ export default function DetectPage() {
           >
             <Loader2 className="w-9 h-9 text-forest animate-spin" />
             <div className="text-center">
-              <p className="font-display text-lg font-bold text-forest">Processing audio stream with Dhwani 2...</p>
+              <p className="font-display text-lg font-bold text-forest">Processing audio stream with DhVani 2...</p>
               <p className="text-xs text-forest font-mono mt-1">
                 Extracting Log-Mel spectral features & running SE-BiGRU neural classification
               </p>
@@ -165,13 +150,6 @@ export default function DetectPage() {
         {/* Results Card */}
         {result && !isProcessing && (
           <div className="space-y-6">
-            {result._demo && (
-              <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-lemongrass/40 border border-forest/20 text-forest text-xs font-mono font-bold">
-                <ShieldCheck size={16} />
-                <span>Demo mode — real-time local model active. Pass live API key for production gateway billing.</span>
-              </div>
-            )}
-
             <DetectionResult result={result} />
 
             <div className="flex justify-center pt-2">
@@ -179,7 +157,7 @@ export default function DetectPage() {
                 onClick={handleReset}
                 className="inline-flex items-center gap-2 bg-forest text-lemongrass hover:bg-forest-hover font-bold text-xs px-6 py-3 rounded-md shadow-sm transition-all cursor-pointer"
               >
-                <RotateCcw size={14} /> Analyze Another Sample
+                <RotateCcw size={14} /> Analyze Another Audio
               </button>
             </div>
           </div>

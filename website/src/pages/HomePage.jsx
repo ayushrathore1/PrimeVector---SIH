@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { 
-  ShieldAlert, Zap, Cpu, ArrowRight, Terminal, Lock, Brain, 
+import {
+  ShieldAlert, Zap, Cpu, ArrowRight, Terminal, Lock, Brain,
   Layers, Mic, FileAudio, Clock, CheckCircle, Sparkles, Activity,
   Sliders, ShieldCheck, Database
 } from 'lucide-react';
@@ -10,7 +10,7 @@ import CodeBlock from '../components/CodeBlock';
 export default function HomePage({ setActiveTab }) {
   return (
     <div className="relative min-h-screen bg-white text-forest selection:bg-lemongrass selection:text-forest overflow-hidden">
-      
+
       {/* ── Spade Decorative Edge Ruler Ticks ────────────────────────── */}
       <div className="absolute top-4 bottom-0 flex w-4.5 flex-col space-y-7 overflow-y-clip left-2 max-lg:hidden pointer-events-none" aria-hidden="true">
         {[...Array(35)].map((_, i) => (
@@ -24,17 +24,23 @@ export default function HomePage({ setActiveTab }) {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-24 space-y-24">
-        
+
         {/* ── HERO SECTION (Spade Style Cut-Corner Block) ────────────────────────── */}
         <section className="relative">
-          <div className="relative bg-sage-1 rounded-2xl p-8 sm:p-14 lg:p-20 spade-cut-md border border-forest/10 shadow-spade text-center overflow-hidden">
-            
-            {/* Background ambient gradient */}
-            <div className="absolute -right-20 -top-20 w-96 h-96 bg-lemongrass/20 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -left-20 -bottom-20 w-96 h-96 bg-forest/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative rounded-2xl p-8 sm:p-14 lg:p-20 spade-cut-md border border-forest/10 shadow-spade text-center overflow-hidden">
+
+            {/* Hero background image */}
+            <img
+              src="/assets/hero_bg.png"
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            {/* Slight overlay for text readability */}
+            <div className="absolute inset-0 bg-white/30 backdrop-blur-[1px]" />
 
             <div className="relative z-10 max-w-4xl mx-auto space-y-8">
-              
+
               {/* Badge */}
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -43,7 +49,7 @@ export default function HomePage({ setActiveTab }) {
                 className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-forest/15 shadow-sm text-forest font-mono text-xs font-semibold"
               >
                 <Sparkles size={14} className="text-forest" />
-                <span>DHWANII 2 ENGINE · 6.2M PARAMS · &lt;50MS INFERENCE</span>
+                <span>4-VECTOR FIREWALL · DHVANI 2 + VOICEPRINT + VISHING NLP + SIP TELEMETRY</span>
               </motion.div>
 
               {/* Main Display Headline */}
@@ -53,9 +59,10 @@ export default function HomePage({ setActiveTab }) {
                 transition={{ duration: 0.5, delay: 0.1 }}
                 className="font-display text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-forest leading-[1.08]"
               >
-                The data & AI platform for{' '}
-                <span className="relative inline-block px-2 py-0.5 bg-lemongrass/40 text-forest rounded-sm">
-                  voice authenticity
+                <span className="text-forest/60 text-2xl sm:text-3xl lg:text-4xl font-bold block mb-2">PrimeVector Multi-Vector Platform</span>
+                <span className="relative inline-block">
+                  <span className="relative z-10">SatyaDh</span><span className="relative z-10 text-forest">V</span><span className="relative z-10">ani 2 & Anti-Impersonation</span>
+                  <span className="absolute bottom-1 left-0 right-0 h-3 sm:h-4 bg-lemongrass/40 -z-0 rounded-sm" />
                 </span>
               </motion.h1>
 
@@ -66,7 +73,7 @@ export default function HomePage({ setActiveTab }) {
                 transition={{ duration: 0.5, delay: 0.2 }}
                 className="text-base sm:text-xl text-forest/80 max-w-2xl mx-auto leading-relaxed font-normal"
               >
-                PrimeVector takes raw voice streams and turns them into structured, verified authenticity records — with neural models that catch synthetic audio everywhere it matters.
+                Enterprise real-time voice integrity & anti-impersonation firewall — fusing <strong>Acoustic Forensics</strong>, <strong>Speaker Voiceprints</strong>, <strong>Conversational Vishing NLP</strong>, and <strong>SIP Call Telemetry</strong> in sub-50ms.
               </motion.p>
 
               {/* CTAs */}
@@ -101,8 +108,8 @@ export default function HomePage({ setActiveTab }) {
                   <span className="text-xs text-forest/70 text-left leading-tight font-medium">P99 enrichment<br />latency</span>
                 </div>
                 <div className="flex items-center gap-2 border-r border-forest/15 pr-4">
-                  <span className="font-display font-extrabold text-2xl text-forest">98.6%</span>
-                  <span className="text-xs text-forest/70 text-left leading-tight font-medium">Benchmark<br />accuracy</span>
+                  <span className="font-display font-extrabold text-2xl text-forest">~6M</span>
+                  <span className="text-xs text-forest/70 text-left leading-tight font-medium">Model<br />parameters</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-display font-extrabold text-2xl text-forest">0 Bytes</span>
@@ -265,7 +272,7 @@ export default function HomePage({ setActiveTab }) {
                 icon: Brain,
                 title: 'Model Topology',
                 desc: 'ResNet-SE + BiGRU + Multi-Head Attention neural pipeline.',
-                metric: '6.2M Params',
+                metric: '~6M Params',
               },
               {
                 icon: Clock,
@@ -275,9 +282,9 @@ export default function HomePage({ setActiveTab }) {
               },
               {
                 icon: ShieldCheck,
-                title: 'Benchmarked Accuracy',
-                desc: 'Tested on multi-lingual datasets (Hindi, English, Gujarati).',
-                metric: '98.6% Accuracy',
+                title: 'Multi-Lingual Detection',
+                desc: 'Trained on Hindi, English, Marathi & Gujarati with ARTPARK-IISc Vaani dataset.',
+                metric: '4 Languages',
               },
               {
                 icon: Lock,
@@ -358,7 +365,7 @@ export default function HomePage({ setActiveTab }) {
               Add voice authenticity to every stream
             </h2>
             <p className="text-white/80 text-base sm:text-lg font-normal">
-              Get instant API keys and start testing Dhwani 2 voice deepfake detection today.
+              Get instant API keys and start testing DhVani 2 voice deepfake detection today.
             </p>
             <div className="pt-4 flex flex-wrap justify-center gap-4">
               <button
