@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import {
   ShieldAlert, Zap, Cpu, ArrowRight, Terminal, Lock, Brain,
-  Layers, Mic, FileAudio, Clock, CheckCircle, Sparkles, Activity,
+  Layers, Mic, FileAudio, Clock, CheckCircle, Activity,
   Sliders, ShieldCheck, Database
 } from 'lucide-react';
 import CodeBlock from '../components/CodeBlock';
@@ -41,17 +41,6 @@ export default function HomePage({ setActiveTab }) {
 
             <div className="relative z-10 max-w-4xl mx-auto space-y-8">
 
-              {/* Badge */}
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-forest/15 shadow-sm text-forest font-mono text-xs font-semibold"
-              >
-                <Sparkles size={14} className="text-forest" />
-                <span>4-VECTOR FIREWALL · DHVANI 2 + VOICEPRINT + VISHING NLP + SIP TELEMETRY</span>
-              </motion.div>
-
               {/* Main Display Headline */}
               <motion.h1
                 initial={{ opacity: 0, y: 15 }}
@@ -59,7 +48,7 @@ export default function HomePage({ setActiveTab }) {
                 transition={{ duration: 0.5, delay: 0.1 }}
                 className="font-display text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-forest leading-[1.08]"
               >
-                <span className="text-forest/60 text-2xl sm:text-3xl lg:text-4xl font-bold block mb-2">PrimeVector Multi-Vector Platform</span>
+                <span className="text-forest/60 text-2xl sm:text-3xl lg:text-4xl font-bold block mb-2">Prime Vector Presents</span>
                 <span className="relative inline-block">
                   <span className="relative z-10">SatyaDh</span><span className="relative z-10 text-forest">V</span><span className="relative z-10">ani 2 & Anti-Impersonation</span>
                   <span className="absolute bottom-1 left-0 right-0 h-3 sm:h-4 bg-lemongrass/40 -z-0 rounded-sm" />

@@ -1,7 +1,7 @@
 {
-  "name": "@voiceintegrity/sdk",
-  "version": "0.1.0",
-  "description": "Voice Integrity & Impersonation Prevention Node.js SDK (voiceintegrity.v1)",
+  "name": "@satyadhvani/sdk",
+  "version": "0.2.0",
+  "description": "SatyaDhVani Voice Deepfake & Impersonation Prevention Framework Node.js SDK",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

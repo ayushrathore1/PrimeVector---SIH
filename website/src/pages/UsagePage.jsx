@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { BarChart3, Key, Clock, ShieldCheck, ShieldAlert, Trash2, Plus, Copy, Check, HelpCircle, Activity, RefreshCw } from 'lucide-react';
+import { BarChart3, Key, Clock, ShieldCheck, ShieldAlert, Copy, Check, HelpCircle, Activity, RefreshCw } from 'lucide-react';
 import UsageChart from '../components/UsageChart';
+import ApiKeyManager from '../components/ApiKeyManager';
 import { getUsage, getUsageHistory, getRecentDetections } from '../utils/api';
 
-const DEFAULT_API_KEY = 'pv_live_demo_000000000000000000000000';
+const DEFAULT_DEMO_KEY = 'pv_live_demo_000000000000000000000000';
 
 const EMPTY_USAGE = {
   api_key_id: '',
@@ -18,7 +19,7 @@ const EMPTY_USAGE = {
 };
 
 export default function UsagePage() {
-  const [apiKey, setApiKey] = useState(DEFAULT_API_KEY);
+  const [apiKey, setApiKey] = useState(DEFAULT_DEMO_KEY);
   const [usage, setUsage] = useState(EMPTY_USAGE);
   const [history, setHistory] = useState([]);
   const [detections, setDetections] = useState([]);
@@ -26,23 +27,36 @@ export default function UsagePage() {
   const [copied, setCopied] = useState(false);
   const [lastRefreshed, setLastRefreshed] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
   const loadData = useCallback(async () => {
+    if (!apiKey) return;
     setRefreshing(true);
     const [usageRes, histRes, detRes] = await Promise.all([
       getUsage(apiKey),
       getUsageHistory(apiKey),
-      getRecentDetections(apiKey, 20),
+      getRecentDetections(apiKey, 30),
     ]);
 
-    if (usageRes.success) { setUsage(usageRes.data); setIsLive(true); }
-    else { setUsage(EMPTY_USAGE); setIsLive(false); }
+    if (usageRes.success && usageRes.data) {
+      setUsage(usageRes.data);
+      setIsLive(true);
+    } else {
+      setUsage(EMPTY_USAGE);
+      setIsLive(false);
+    }
 
-    if (histRes.success) setHistory(histRes.data.entries || []);
-    else setHistory([]);
+    if (histRes.success && histRes.data?.entries) {
+      setHistory(histRes.data.entries);
+    } else {
+      setHistory([]);
+    }
 
-    if (detRes.success) setDetections(detRes.data.detections || []);
-    else setDetections([]);
+    if (detRes.success && detRes.data?.detections) {
+      setDetections(detRes.data.detections);
+    } else {
+      setDetections([]);
+    }
 
     setLastRefreshed(new Date().toLocaleTimeString());
     setRefreshing(false);
@@ -50,9 +64,10 @@ export default function UsagePage() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 15000);
+    if (!autoRefresh) return;
+    const interval = setInterval(loadData, 5000);
     return () => clearInterval(interval);
-  }, [loadData]);
+  }, [loadData, autoRefresh]);
 
   const usedPct = usage.daily_limit > 0 ? Math.round((usage.detections_today / usage.daily_limit) * 100) : 0;
 
@@ -71,25 +86,36 @@ export default function UsagePage() {
           <div>
             <div className="inline-flex items-center gap-2 text-xs font-mono font-semibold uppercase tracking-wider text-forest/70 mb-1">
               <BarChart3 size={14} className="text-forest" />
-              <span>Real-Time Analytics</span>
+              <span>Real-Time Analytics & Provisioning</span>
             </div>
             <h1 className="font-display text-4xl font-extrabold text-forest tracking-tight">
               Usage & Metering Dashboard
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {isLive ? (
               <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 font-mono text-xs font-semibold">
-                <Activity size={14} className="animate-pulse" />
-                <span>LIVE — Backend Connected</span>
+                <Activity size={14} className="animate-pulse text-emerald-600" />
+                <span>LIVE — Gateway Connected</span>
               </div>
             ) : (
               <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-100 border border-amber-300 text-amber-900 font-mono text-xs font-semibold">
                 <HelpCircle size={14} />
-                <span>OFFLINE — Backend Unreachable</span>
+                <span>OFFLINE — Gateway Unreachable</span>
               </div>
             )}
+
+            <button
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={`px-3 py-1.5 rounded-lg border font-mono text-xs font-bold transition-all cursor-pointer ${
+                autoRefresh
+                  ? 'bg-forest text-lemongrass border-forest'
+                  : 'bg-sage-1 text-forest border-forest/20 hover:border-forest/40'
+              }`}
+            >
+              {autoRefresh ? '⚡ Live 5s Sync ON' : 'Pause Live Sync'}
+            </button>
 
             <button
               onClick={loadData}
@@ -108,11 +134,11 @@ export default function UsagePage() {
           </div>
         </div>
 
-        {/* API Key Bar */}
+        {/* API Key Input & Active Status Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 rounded-xl bg-sage-1 border border-forest/10 spade-cut-sm">
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <Key size={16} className="text-forest shrink-0" />
-            <span className="text-xs font-mono font-bold text-forest whitespace-nowrap">API Key:</span>
+            <span className="text-xs font-mono font-bold text-forest whitespace-nowrap">Active API Key:</span>
             <input
               type="text"
               value={apiKey}
@@ -128,6 +154,12 @@ export default function UsagePage() {
             TIER: {usage.tier}
           </span>
         </div>
+
+        {/* API Key Generator & Manager Component */}
+        <ApiKeyManager
+          activeApiKey={apiKey}
+          onSelectKey={(newKey) => setApiKey(newKey)}
+        />
 
         {/* Stat Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -181,16 +213,19 @@ export default function UsagePage() {
           </div>
         </div>
 
-        {/* Chart */}
+        {/* Real-Time Chart */}
         <div className="bg-white border border-forest/10 rounded-2xl p-6 sm:p-8 space-y-4 shadow-spade spade-cut-md">
-          <h3 className="font-display text-xl font-bold text-forest">Detection Stream Throughput (14 Days)</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-xl font-bold text-forest">Detection Stream Throughput (14 Days)</h3>
+            <span className="text-xs font-mono text-forest/60">Dynamic Aggregates</span>
+          </div>
           {history.length > 0 ? (
             <UsageChart data={history} />
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <BarChart3 size={40} className="text-forest/20 mb-3" />
-              <p className="text-sm font-semibold text-forest/50">No usage history yet</p>
-              <p className="text-xs text-forest/40 mt-1">Detection data will appear here once API calls are made</p>
+              <p className="text-sm font-semibold text-forest/50">No usage history recorded</p>
+              <p className="text-xs text-forest/40 mt-1">Detection data will populate in real-time as API calls execute</p>
             </div>
           )}
         </div>
@@ -201,7 +236,7 @@ export default function UsagePage() {
             <span className="font-mono text-xs font-bold text-forest uppercase tracking-wider">
               Recent Detection Logs ({detections.length})
             </span>
-            <span className="text-xs font-mono text-forest/60">DhVani 2 Engine</span>
+            <span className="text-xs font-mono text-forest/60">DhVani 2 Real-Time Engine</span>
           </div>
 
           <div className="overflow-x-auto">
@@ -222,8 +257,8 @@ export default function UsagePage() {
                     <td colSpan={6} className="py-12 text-center">
                       <div className="flex flex-col items-center">
                         <Activity size={32} className="text-forest/20 mb-2" />
-                        <p className="text-sm font-semibold text-forest/50">No detections recorded yet</p>
-                        <p className="text-xs text-forest/40 mt-1">Run detections via the API to see real-time logs here</p>
+                        <p className="text-sm font-semibold text-forest/50">No recent detection logs recorded</p>
+                        <p className="text-xs text-forest/40 mt-1">Run voice detection requests via API or Live Detector to stream logs here</p>
                       </div>
                     </td>
                   </tr>
@@ -252,7 +287,6 @@ export default function UsagePage() {
                   ))
                 )}
               </tbody>
-
             </table>
           </div>
         </div>

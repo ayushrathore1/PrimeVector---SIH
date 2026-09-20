@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "voiceintegrity"
-version = "0.1.0"
-description = "Voice Integrity & Impersonation Prevention Python SDK (voiceintegrity.v1)"
+name = "satyadhvani"
+version = "0.2.0"
+description = "SatyaDhVani Voice Deepfake & Impersonation Prevention Framework SDK"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [

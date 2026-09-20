@@ -1,22 +1,24 @@
 # 🛡️ Google Colab Hybrid Setup Guide
 
-Run the Satya PrimeVector platform on your **8 GB RAM PC** by offloading heavy ML services to a **free Google Colab** runtime.
+Run the Satya PrimeVector platform on your **8 GB RAM PC** by running the **Deepfake Detection Model (`spoof-detection-service`) LOCALLY** on your PC while offloading heavy PyTorch spectrogram feature extraction and speaker enrollment to a **free Google Colab** GPU runtime.
 
-**Local RAM usage: ~300 MB** (instead of 5+ GB with Docker)
+**Local RAM usage: ~350 MB** (instead of 5+ GB with Docker)
 
 ---
 
 ## Architecture
 
 ```
-Your PC (~300 MB RAM)                Google Colab (Free 12 GB RAM)
-┌──────────────────────┐             ┌──────────────────────────┐
-│ risk-fusion    :8000 │             │ feature-extraction :8001 │
-│ policy-engine  :8004 │  ← ngrok → │ spoof-detection    :8002 │
-│ alerting       :8005 │   tunnel   │ enrollment         :8003 │
-│ orchestrator   :8080 │             │ reverse-proxy      :9090 │
-│ dashboard      :9000 │             └──────────────────────────┘
-└──────────────────────┘
+Your Local PC (~350 MB RAM)                   Google Colab (Free 12 GB RAM)
+┌──────────────────────────────────────┐      ┌──────────────────────────┐
+│ spoof-detection (Dhwani 2)     :8002 │      │ feature-extraction :8001 │
+│ api-gateway                    :8090 │  ← ngrok → │ enrollment         :8003 │
+│ risk-fusion-engine             :8000 │   tunnel   │ reverse-proxy      :9090 │
+│ policy-threshold-engine        :8004 │              └──────────────────────────┘
+│ alerting-service               :8005 │
+│ orchestrator                   :8085 │
+│ dashboard                      :9000 │
+└──────────────────────────────────────┘
 ```
 
 ---
@@ -29,7 +31,7 @@ Your PC (~300 MB RAM)                Google Colab (Free 12 GB RAM)
 2. Go to [Your Authtoken](https://dashboard.ngrok.com/get-started/your-authtoken)
 3. Copy the token (looks like `2abc...xyz`)
 
-### Step 2: Start ML Services on Google Colab
+### Step 2: Start Heavy ML Services on Google Colab
 
 1. Open [Google Colab](https://colab.research.google.com)
 2. Create a **New Notebook**
@@ -37,7 +39,12 @@ Your PC (~300 MB RAM)                Google Colab (Free 12 GB RAM)
 
 ```python
 # Download and run the PrimeVector Colab launcher
-!wget -q https://raw.githubusercontent.com/ayushrathore1/PrimeVector---SIH/main/colab_ml_services.py
+!rm -f colab_ml_services.py
+!wget -q -O colab_ml_services.py https://raw.githubusercontent.com/ayushrathore1/PrimeVector---SIH/local-model-integration/colab_ml_services.py
+
+import sys
+if 'colab_ml_services' in sys.modules:
+    del sys.modules['colab_ml_services']
 
 from colab_ml_services import main
 main(ngrok_auth_token="PASTE_YOUR_NGROK_TOKEN_HERE")
@@ -57,129 +64,43 @@ main(ngrok_auth_token="PASTE_YOUR_NGROK_TOKEN_HERE")
 
 6. **Copy the URL** — you'll need it next
 
-### Step 3: Configure Your Local PC
+### Step 3: Configure & Run Your Local PC
 
-1. Open `.env` file in your project root
-2. Add the Colab tunnel URL:
-
-```
-COLAB_TUNNEL_URL=https://abc123.ngrok-free.app
-```
-
-### Step 4: Start Local Services
+Run the single master hybrid launcher:
 
 ```bash
 python run_local_lightweight.py
 ```
 
-That's it! The dashboard opens at http://localhost:9000
+If `COLAB_TUNNEL_URL` is not found in `.env`, the script will prompt you interactively in the terminal to paste your URL and save it automatically!
 
 ---
 
 ## What Runs Where?
 
-| Service | Location | RAM Used | Why |
+| Service | Location | RAM Used | Purpose |
 |:---|:---|:---|:---|
-| feature-extraction | ☁️ Colab | ~500 MB (on Colab) | Uses PyTorch + Resemblyzer |
-| enrollment | ☁️ Colab | ~450 MB (on Colab) | Uses PyTorch + Resemblyzer |
-| spoof-detection | ☁️ Colab | ~80 MB (on Colab) | Grouped with ML services |
-| risk-fusion-engine | 💻 Local | ~40 MB | Pure Python, no ML |
-| policy-threshold | 💻 Local | ~40 MB | Pure Python, no ML |
-| alerting-service | 💻 Local | ~40 MB | Pure Python, no ML |
-| orchestrator | 💻 Local | ~60 MB | HTTP client only |
-| dashboard | 💻 Local | ~20 MB | Static file server |
+| **spoof-detection-service** | 💻 Local | ~80 MB | Local Dhwani 2 Deepfake Classifier (Sub-50ms CPU) |
+| **api-gateway** | 💻 Local | ~45 MB | Public REST API, API Keys & Metering |
+| **risk-fusion-engine** | 💻 Local | ~40 MB | Deterministic Compliance & Risk Math |
+| **policy-threshold-engine**| 💻 Local | ~40 MB | Configurable Thresholds & Auto-Block Gate |
+| **alerting-service** | 💻 Local | ~40 MB | Real-time Webhooks & Alerts |
+| **orchestrator** | 💻 Local | ~60 MB | Call Pipeline Coordinator |
+| **dashboard** | 💻 Local | ~20 MB | Static Web UI |
+| **feature-extraction** | ☁️ Colab | ~500 MB (Colab) | Log-Mel Spectrogram Extraction |
+| **enrollment-service** | ☁️ Colab | ~450 MB (Colab) | Resemblyzer Voiceprint Embeddings |
 
-**Total local: ~250-300 MB** ✅
+**Total Local RAM: ~350 MB** ✅
 
 ---
 
-## FAQ
+## FAQ & Loose Ends Covered
 
-### How long does a Colab session last?
-Free Colab sessions last **~12 hours** max, or disconnect after **~90 minutes idle**. Keep the tab open and interact with it occasionally. For demos and development, this is plenty.
+### Why run the Deepfake Model locally?
+Dhwani 2 is a compact ~6M parameter model optimized for CPU inference (<50ms execution). Running it locally eliminates ngrok tunnel roundtrips for deepfake detection while keeping heavy feature extraction and speaker enrollment on Colab's 12 GB GPU runtime.
+
+### What about ngrok browser warning pages?
+`run_local_lightweight.py` and the `orchestrator` automatically inject the `ngrok-skip-browser-warning: true` header into all HTTP requests, preventing HTML interstitial errors.
 
 ### What if the ngrok URL changes?
-Each time you restart the Colab notebook, ngrok assigns a new URL. Just update `COLAB_TUNNEL_URL` in your `.env` file and restart `run_local_lightweight.py`.
-
-### Can I still run everything locally with Docker?
-Yes! The original `docker-compose up` and `start_project.py` still work exactly as before. The Colab hybrid mode is an **additional option**, not a replacement.
-
-### What about the ingestion-gateway (Go/gRPC)?
-The ingestion-gateway is standalone and not required for the demo pipeline. If needed, run it separately with `go run` locally — it uses only ~15 MB RAM.
-
-### Do I need to install anything locally?
-You need Python 3.11+ and these pip packages for the local services:
-```bash
-pip install fastapi uvicorn pydantic httpx
-```
-The heavy packages (PyTorch, Resemblyzer, librosa) are **NOT needed locally** — they run on Colab.
-
----
-
-## 👥 How to Share Setup with Teammates
-
-There are **two ways** to share this setup with your team:
-
-### Method A: Share YOUR Live Colab Tunnel (Fastest — 1-minute setup for teammate)
-
-If **YOU** already have Google Colab running with ngrok:
-
-1. **You copy your active ngrok URL** from your `.env` file:
-   ```env
-   COLAB_TUNNEL_URL=https://headgear-residual-wooing.ngrok-free.dev
-   ```
-2. **Send that URL to your teammate** (via WhatsApp / Discord / Slack).
-3. **Teammate's local setup**:
-   - Clones repo: `git clone -b local-model-integration https://github.com/ayushrathore1/PrimeVector---SIH.git`
-   - Installs lightweight packages: `pip install fastapi uvicorn pydantic httpx requests`
-   - Paste the shared URL in their `.env`:
-     ```env
-     COLAB_TUNNEL_URL=https://headgear-residual-wooing.ngrok-free.dev
-     ```
-   - Runs `python run_local_lightweight.py`
-4. **Done!** Both of you can hit your active Colab ML backend simultaneously without your teammate needing a Google Colab or ngrok account.
-
----
-
-### Method B: Teammate Runs Their Own Colab + Own/Shared ngrok Token
-
-If your teammate wants to run their own Colab GPU instance independently:
-
-1. **Get GitHub Personal Access Token (PAT)** (required because the repo is private):
-   - Teammate creates a token at [github.com/settings/tokens](https://github.com/settings/tokens) with `repo` scope.
-
-2. **In Google Colab**, paste and run this cell:
-   ```python
-   # 1. Download launcher from branch
-   !wget -q -O colab_ml_services.py https://raw.githubusercontent.com/ayushrathore1/PrimeVector---SIH/local-model-integration/colab_ml_services.py
-
-   # 2. Run launcher (pass PAT for private repo access & ngrok token)
-   from colab_ml_services import main
-
-   main(
-       ngrok_auth_token="YOUR_OR_TEAMMATE_NGROK_TOKEN",
-       github_pat="TEAMMATE_GITHUB_PAT",
-       branch="local-model-integration"
-   )
-   ```
-   *Note: Teammate can use their own free ngrok token from [ngrok.com](https://dashboard.ngrok.com) OR use your ngrok auth token.*
-
-3. **Teammate configures local `.env`**:
-   - Copy the new ngrok URL printed by Colab into their `.env`:
-     ```env
-     COLAB_TUNNEL_URL=https://xxxx-xx-xx-xx.ngrok-free.app
-     ```
-   - Run `python run_local_lightweight.py` on their machine.
-
----
-
-## Troubleshooting
-
-| Issue | Solution |
-|:---|:---|
-| "COLAB_TUNNEL_URL not found" | Add the ngrok URL to your `.env` file |
-| "Colab tunnel NOT reachable" | Check Colab tab is still running; re-run notebook if timed out |
-| ngrok "ERR_NGROK_108" | Free tier limit reached — wait 60 seconds and try again |
-| Private repo clone error on Colab | Pass `github_pat="ghp_xxx"` to `main(...)` in the Colab cell |
-| Services unhealthy on Colab | Check Colab cell output or `/content/*.log` files in Colab |
-| Port already in use locally | Kill existing processes: `taskkill /F /IM python.exe` (Windows) |
+Each time you restart Colab, ngrok assigns a new URL. Simply run `python run_local_lightweight.py` — it will detect an invalid/missing URL and prompt you to paste the new one, saving it to `.env` instantly.

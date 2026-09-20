@@ -101,10 +101,13 @@ export async function getUsage(apiKey) {
     const resp = await fetch(`${API_BASE}/v1/usage`, {
       headers: { 'X-API-Key': apiKey },
     });
-    if (!resp.ok) return { success: false };
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      return { success: false, error: err.detail?.message || err.detail || 'Failed to fetch usage' };
+    }
     return { success: true, data: await resp.json() };
-  } catch {
-    return { success: false };
+  } catch (err) {
+    return { success: false, error: err.message };
   }
 }
 
@@ -120,10 +123,13 @@ export async function getUsageHistory(apiKey, startDate, endDate) {
     const resp = await fetch(`${API_BASE}/v1/usage/history?${params}`, {
       headers: { 'X-API-Key': apiKey },
     });
-    if (!resp.ok) return { success: false };
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      return { success: false, error: err.detail?.message || err.detail || 'Failed to fetch usage history' };
+    }
     return { success: true, data: await resp.json() };
-  } catch {
-    return { success: false };
+  } catch (err) {
+    return { success: false, error: err.message };
   }
 }
 
@@ -135,10 +141,13 @@ export async function getRecentDetections(apiKey, limit = 50) {
     const resp = await fetch(`${API_BASE}/v1/usage/detections?limit=${limit}`, {
       headers: { 'X-API-Key': apiKey },
     });
-    if (!resp.ok) return { success: false };
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      return { success: false, error: err.detail?.message || err.detail || 'Failed to fetch detection logs' };
+    }
     return { success: true, data: await resp.json() };
-  } catch {
-    return { success: false };
+  } catch (err) {
+    return { success: false, error: err.message };
   }
 }
 
@@ -152,10 +161,13 @@ export async function listApiKeys(apiKey) {
     const resp = await fetch(`${API_BASE}/v1/keys`, {
       headers: { 'X-API-Key': apiKey },
     });
-    if (!resp.ok) return { success: false };
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      return { success: false, error: err.detail?.message || err.detail || 'Failed to list API keys' };
+    }
     return { success: true, data: await resp.json() };
-  } catch {
-    return { success: false };
+  } catch (err) {
+    return { success: false, error: err.message };
   }
 }
 
@@ -172,10 +184,13 @@ export async function createApiKey(apiKey, name, tier = 'free') {
       },
       body: JSON.stringify({ name, tier }),
     });
-    if (!resp.ok) return { success: false };
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      return { success: false, error: err.detail?.message || err.detail || 'Failed to create API key' };
+    }
     return { success: true, data: await resp.json() };
-  } catch {
-    return { success: false };
+  } catch (err) {
+    return { success: false, error: err.message };
   }
 }
 
@@ -188,9 +203,13 @@ export async function revokeApiKey(apiKey, keyId) {
       method: 'DELETE',
       headers: { 'X-API-Key': apiKey },
     });
-    return { success: resp.ok || resp.status === 204 };
-  } catch {
-    return { success: false };
+    if (!resp.ok && resp.status !== 204) {
+      const err = await resp.json().catch(() => ({}));
+      return { success: false, error: err.detail?.message || err.detail || 'Failed to revoke API key' };
+    }
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
   }
 }
 

@@ -69,4 +69,5 @@ ml/dhwani/notebooks/*.zip
 *.pth
 *.ckpt
 *.safetensors
+*.tgz
 
