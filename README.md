@@ -7,12 +7,14 @@
 
 | Guide | Description |
 |---|---|
-| 📜 [**SIH_PROJECT_BRIEFING.md**](file:///d:/Prime-Vector/PrimeVector---SIH/SIH_PROJECT_BRIEFING.md) | **SIH Master Briefing:** Complete executive summary, architecture workflow, tech stack rationale, feasibility & viability, and judge Q&A sheet. |
-| 🗣️ [**SIH_SIMPLE_EXPLANATION.md**](file:///d:/Prime-Vector/PrimeVector---SIH/SIH_SIMPLE_EXPLANATION.md) | **Dual-Layer Easy Explanation:** Non-technical analogies + technical term definitions for every single microservice. |
-| 🤖 [**DELEGATION_PROMPTS.md**](file:///d:/Prime-Vector/PrimeVector---SIH/DELEGATION_PROMPTS.md) | **Developer Prompt Packets:** Independent prompts for 4 developers to build/test parallel microservices. |
-| 📋 [**REQUIREMENTS_GAP_AND_AGENT_SPEC.md**](file:///d:/Prime-Vector/PrimeVector---SIH/REQUIREMENTS_GAP_AND_AGENT_SPEC.md) | **Requirements Mapping:** Official problem statement vs implementation matrix & safety guardrails. |
-| 📖 [**SYSTEM_ARCHITECTURE_AND_GUIDE.md**](file:///d:/Prime-Vector/PrimeVector---SIH/SYSTEM_ARCHITECTURE_AND_GUIDE.md) | **Complete System Architecture:** Layman explanation, high-level sequence diagrams, and low-level specifications. |
-| 🛠️ [**DEVELOPER_GUIDE.md**](file:///d:/Prime-Vector/PrimeVector---SIH/DEVELOPER_GUIDE.md) | **Developer & Testing Setup:** Commands to run, test, and containerize the project (Docker, Pytest, Go, Node). |
+| 📜 [**SIH_PROJECT_BRIEFING.md**](docs/SIH_PROJECT_BRIEFING.md) | **SIH Master Briefing:** Complete executive summary, architecture workflow, tech stack rationale, feasibility & viability, and judge Q&A sheet. |
+| 🗣️ [**SIH_SIMPLE_EXPLANATION.md**](docs/SIH_SIMPLE_EXPLANATION.md) | **Dual-Layer Easy Explanation:** Non-technical analogies + technical term definitions for every single microservice. |
+| 🤖 [**DELEGATION_PROMPTS.md**](docs/DELEGATION_PROMPTS.md) | **Developer Prompt Packets:** Independent prompts for 4 developers to build/test parallel microservices. |
+| 📋 [**REQUIREMENTS_GAP_AND_AGENT_SPEC.md**](docs/REQUIREMENTS_GAP_AND_AGENT_SPEC.md) | **Requirements Mapping:** Official problem statement vs implementation matrix & safety guardrails. |
+| 📖 [**SYSTEM_ARCHITECTURE_AND_GUIDE.md**](docs/SYSTEM_ARCHITECTURE_AND_GUIDE.md) | **Complete System Architecture:** Layman explanation, high-level sequence diagrams, and low-level specifications. |
+| 🛠️ [**DEVELOPER_GUIDE.md**](docs/DEVELOPER_GUIDE.md) | **Developer & Testing Setup:** Commands to run, test, and containerize the project (Docker, Pytest, Go, Node). |
+| 🧪 [**DESIGN.md**](docs/DESIGN.md) & [**DESIGN_RATIONALE.md**](docs/DESIGN_RATIONALE.md) | **Core System Design & Invariants:** Regulatory specifications, compliance math, and architecture invariants. |
+
 
 ---
 
@@ -98,6 +100,7 @@ Then open your browser at **`http://localhost:9000`** or **`http://localhost:900
 ### Method 2: Run Full Automated Verification Suite
 ```bash
 # Run automated end-to-end verification
-python qa_test_runner.py
-python test_multilingual_nlp.py
+python scripts/qa/qa_test_runner.py
+python scripts/qa/test_multilingual_nlp.py
 ```
+

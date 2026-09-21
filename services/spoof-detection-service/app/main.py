@@ -10,6 +10,8 @@ This is service boilerplate (DESIGN.md §6: "delegated to AI coding tools,
 lightly reviewed"). The detection logic it wraps (detector.py) contains
 the important design decisions.
 """
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 import logging
 from contextlib import asynccontextmanager
 
@@ -61,7 +63,9 @@ def _create_registry() -> ModelRegistry:
             return StubModelRegistry(enable_heuristic=True)
     elif backend == "dhwani":
         try:
-            return DhwaniModelRegistry()
+            return DhwaniModelRegistry(
+                checkpoint_path=os.environ.get("SPOOF_DHWANI_CHECKPOINT_PATH") or None
+            )
         except Exception as e:
             logger.warning(
                 "Failed to initialize Dhwani model registry (%s). "
@@ -76,7 +80,7 @@ def _create_registry() -> ModelRegistry:
     else:
         raise ValueError(
             f"Unknown model_registry_backend='{backend}'. "
-            f"Available: 'deepfake', 'heuristic', 'stub'."
+            f"Available: 'deepfake', 'dhwani', 'heuristic', 'stub'."
         )
 
 
@@ -126,6 +130,23 @@ app = FastAPI(
 )
 
 
+def _get_detector() -> SpoofDetector:
+    """Ensure detector and registry are initialized."""
+    global _registry, _detector
+    if _detector is None:
+        _registry = _create_registry()
+        lang_id = LanguageIdentifier(
+            registry=_registry,
+            default_cluster=settings.default_accent_cluster,
+        )
+        _detector = SpoofDetector(
+            registry=_registry,
+            language_identifier=lang_id,
+            settings=settings,
+        )
+    return _detector
+
+
 @app.post("/v1/detect", response_model=SynthesisSignalResponse)
 def detect(req: SpoofDetectionRequest) -> SynthesisSignalResponse:
     """
@@ -137,7 +158,8 @@ def detect(req: SpoofDetectionRequest) -> SynthesisSignalResponse:
     failed detection is NOT evidence of a clean call (fusion.py
     design decision 4).
     """
-    return _detector.detect(req)
+    detector = _get_detector()
+    return detector.detect(req)
 
 
 @app.get("/healthz")
@@ -151,6 +173,7 @@ def healthz():
     exists, which is valid fail-safe behavior. Model availability is
     a readiness concern, not a liveness concern.
     """
+    _get_detector()
     has_model = False
     if _registry is not None:
         models = _registry.list_models("spoof-detector/")
@@ -160,4 +183,5 @@ def healthz():
         "status": "ok",
         "model_registered": has_model,
         "registry_backend": settings.model_registry_backend,
+        "backend": settings.model_registry_backend,
     }

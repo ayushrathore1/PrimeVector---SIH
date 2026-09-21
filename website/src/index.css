@@ -98,3 +98,165 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #18280E;
 }
+
+/* ═════════════════════════════════════════════════════════════════════
+ * MOTION-ANYTHING RECIPES (NVIDIA GREEN ACCENTED)
+ * ═════════════════════════════════════════════════════════════════════ */
+
+/* 1. Border-Beam (Conic-Gradient Comet Travelling Around Borders) */
+@property --beam-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.border-beam {
+  --beam-angle: 0deg;
+  --beam-color: #76b900;
+  --beam-size: 1.5px;
+  position: relative;
+  isolation: isolate;
+  border-radius: 2px;
+}
+
+.border-beam::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  padding: var(--beam-size);
+  background: conic-gradient(
+    from var(--beam-angle),
+    transparent 0%,
+    color-mix(in srgb, var(--beam-color) 30%, transparent) 4%,
+    var(--beam-color) 8%,
+    #ffffff 9%,
+    var(--beam-color) 10%,
+    transparent 16%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  filter: drop-shadow(0 0 6px var(--beam-color));
+  animation: beam-travel 3.5s linear infinite;
+  pointer-events: none;
+}
+
+.border-beam-danger {
+  --beam-color: #FF0055;
+  animation-duration: 1.8s;
+}
+
+.border-beam-warn {
+  --beam-color: #FFB800;
+  animation-duration: 2.5s;
+}
+
+.border-beam-cyan {
+  --beam-color: #00E5FF;
+  animation-duration: 3s;
+}
+
+.border-beam-purple {
+  --beam-color: #A855F7;
+  animation-duration: 4s;
+}
+
+@keyframes beam-travel {
+  to {
+    --beam-angle: 360deg;
+  }
+}
+
+/* 2. Shimmer Button (GPU-Safe Sweep Reflection on Primary Actions) */
+.shimmer-btn {
+  position: relative;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.shimmer-btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: translateX(-130%) skewX(-20deg);
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 80%
+  );
+  animation: shimmer-sweep 2.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.shimmer-btn:hover::after {
+  animation-duration: 1.2s;
+}
+
+@keyframes shimmer-sweep {
+  0%, 50% {
+    transform: translateX(-130%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(130%) skewX(-20deg);
+  }
+}
+
+/* 3. Cyber Cockpit Background Grid & Ambient Glows */
+.cyber-grid {
+  background-image: 
+    linear-gradient(rgba(0, 255, 157, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 157, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.cyber-scanline {
+  position: relative;
+  overflow: hidden;
+}
+
+.cyber-scanline::after {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+  z-index: 2;
+  background-size: 100% 2px, 3px 100%;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* 4. Radar Sweep Pulse Animation */
+@keyframes radar-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+.radar-ring {
+  animation: radar-ring 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .border-beam::before,
+  .shimmer-btn::after,
+  .radar-ring {
+    animation: none !important;
+  }
+}

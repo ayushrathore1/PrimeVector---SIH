@@ -15,7 +15,7 @@ export default function StatusPage() {
     // Ping all services in parallel
     await Promise.all(
       MICROSERVICES.map(async (svc) => {
-        const res = await checkServiceHealth(svc.port);
+        const res = await checkServiceHealth(svc);
         newHealthMap[svc.id] = res;
       })
     );
@@ -32,7 +32,9 @@ export default function StatusPage() {
   }, []);
 
   const onlineCount = Object.values(healthMap).filter((h) => h?.status === 'online').length;
-  const totalCount = MICROSERVICES.length;
+  const observableServices = MICROSERVICES.filter((service) => service.healthPath);
+  const observableCount = observableServices.length;
+  const unobservableCount = MICROSERVICES.length - observableCount;
 
   return (
     <div className="min-h-screen bg-white text-forest selection:bg-lemongrass py-10">
@@ -46,7 +48,7 @@ export default function StatusPage() {
             </div>
             <h1 className="font-display text-4xl font-extrabold text-forest tracking-tight">Live Services & Microservice Status</h1>
             <p className="text-xs font-mono text-forest/60 mt-1">
-              Real-time health check pings across {totalCount} containerized platform microservices
+              Real-time health checks across local services and Colab services routed through ngrok
             </p>
           </div>
 
@@ -71,7 +73,7 @@ export default function StatusPage() {
         <div className="rounded-2xl border border-forest/10 bg-sage-1 p-6 shadow-spade spade-cut-md flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center border ${
-              onlineCount === totalCount
+              onlineCount === observableCount
                 ? 'bg-emerald-100 border-emerald-300 text-emerald-700'
                 : 'bg-amber-100 border-amber-300 text-amber-700'
             }`}>
@@ -80,11 +82,11 @@ export default function StatusPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-display text-xl font-extrabold text-forest">
-                  Cluster Health: {onlineCount === totalCount ? 'FULLY OPERATIONAL' : 'DEGRADED'}
+                  Cluster Health: {onlineCount === observableCount ? 'FULLY OPERATIONAL' : 'DEGRADED'}
                 </h3>
               </div>
               <p className="text-xs font-mono text-forest/60 mt-0.5">
-                {onlineCount} of {totalCount} platform microservices responding with healthy HTTP status on local gateway.
+                {onlineCount} of {observableCount} HTTP-observable services are healthy. {unobservableCount} gRPC-only service is shown separately.
               </p>
             </div>
           </div>
@@ -92,7 +94,7 @@ export default function StatusPage() {
           <div className="flex items-center gap-3 bg-white px-5 py-3 rounded-lg border border-forest/10 font-mono text-xs">
             <div>
               <div className="text-forest/60">Services Active:</div>
-              <div className="text-lg font-extrabold text-forest">{onlineCount} / {totalCount}</div>
+              <div className="text-lg font-extrabold text-forest">{onlineCount} / {observableCount}</div>
             </div>
             <div className="w-px h-8 bg-forest/10 mx-2"></div>
             <div>

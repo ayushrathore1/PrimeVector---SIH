@@ -9,7 +9,8 @@ if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
 
 ORCHESTRATOR = "http://localhost:8080"
-AUDIO_DIR = r"D:\SIH26\PrimeVector---SIH\Test Audio"
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+AUDIO_DIR = os.path.join(BASE_DIR, "Test Audio")
 
 def mp3_to_pcm_base64(path, sr=16000):
     import librosa

@@ -123,7 +123,7 @@ class DhwaniModelRegistry:
 
     def _load_baseline(self, checkpoint_path: str):
         """Load Dhwani-Baseline checkpoint."""
-        from model_registry import ModelRegistryEntry
+        from model_registry import ModelRegistryEntry, _heuristic_model_fn
         from model.dhwani_baseline import load_dhwani_baseline
         from model.inference import predict_chunks
 
@@ -145,9 +145,11 @@ class DhwaniModelRegistry:
             arch_label, version, f"{param_count:,}", mem_mb, checkpoint_path,
         )
 
-        # Create callable that accepts audio_pcm_base64
-        def _dhwani_predict(audio_pcm_base64: str) -> dict:
-            return predict_chunks(model, audio_pcm_base64)
+        # Create callable that accepts audio_pcm_base64 or heuristic audio_features list
+        def _dhwani_predict(audio_data) -> dict:
+            if isinstance(audio_data, list):
+                return _heuristic_model_fn(audio_data)
+            return predict_chunks(model, audio_data)
 
         self._torch_model = model
         self._trained_entry = ModelRegistryEntry(
@@ -167,7 +169,7 @@ class DhwaniModelRegistry:
 
     def _load_advanced(self, checkpoint_path: str):
         """Load Dhwani-Advanced checkpoint."""
-        from model_registry import ModelRegistryEntry
+        from model_registry import ModelRegistryEntry, _heuristic_model_fn
         from model.dhwani_advanced import load_dhwani_advanced
         from model.inference import predict_chunks
 
@@ -188,8 +190,10 @@ class DhwaniModelRegistry:
 
         # For advanced model, we only use the mel branch for PCM inference
         # (prosody and SSL require separate feature extraction pipelines)
-        def _dhwani_predict(audio_pcm_base64: str) -> dict:
-            return predict_chunks(model, audio_pcm_base64)
+        def _dhwani_predict(audio_data) -> dict:
+            if isinstance(audio_data, list):
+                return _heuristic_model_fn(audio_data)
+            return predict_chunks(model, audio_data)
 
         self._torch_model = model
         self._trained_entry = ModelRegistryEntry(

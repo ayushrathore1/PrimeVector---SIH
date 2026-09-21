@@ -10,11 +10,10 @@ import PricingPage from './pages/PricingPage';
 import UsagePage from './pages/UsagePage';
 import AboutPage from './pages/AboutPage';
 import StatusPage from './pages/StatusPage';
-import LiveStreamPage from './pages/LiveStreamPage';
 import AndroidPage from './pages/AndroidPage';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('home');
+  const [activeTab, setActiveTab] = useState('detect');
 
   const renderPage = () => {
     switch (activeTab) {
@@ -32,8 +31,6 @@ export default function App() {
         return <AboutPage />;
       case 'status':
         return <StatusPage />;
-      case 'stream':
-        return <LiveStreamPage />;
       case 'android':
         return <AndroidPage />;
       default:
@@ -41,28 +38,33 @@ export default function App() {
     }
   };
 
+  const isDetect = activeTab === 'detect';
+
   return (
-    <div className="min-h-screen flex flex-col bg-white text-forest font-sans">
+    <div className="min-h-screen flex flex-col bg-[#F3F6EE] text-[#0B150A] font-sans antialiased selection:bg-[#C5FF34] selection:text-[#0B150A]">
       <Navigation
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />
 
-      <main className="flex-1 bg-white">
+      <main className={`flex-1 ${isDetect ? 'bg-[#F3F6EE]' : 'bg-white'}`}>
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
-            initial={{ opacity: 0, y: 4 }}
+            initial={{ opacity: 0, y: 3 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.2 }}
+            exit={{ opacity: 0, y: -3 }}
+            transition={{ duration: 0.15 }}
+            className="h-full"
           >
             {renderPage()}
           </motion.div>
         </AnimatePresence>
       </main>
 
-      <Footer setActiveTab={setActiveTab} />
+      {!isDetect && <Footer setActiveTab={setActiveTab} />}
     </div>
   );
 }
+
+

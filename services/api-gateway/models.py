@@ -56,6 +56,22 @@ class DetectResponse(BaseModel):
     model_version: str
     model_architecture: str
     timestamp: str
+    policy_decision: Optional[dict] = Field(
+        default=None,
+        description="Policy Threshold Engine decision payload with action, rules, and versioning",
+    )
+    final_action: Optional[str] = Field(
+        default=None,
+        description="Final deterministic policy action (e.g. RECOMMEND_CALLBACK_VERIFICATION, PROCEED)",
+    )
+    pre_transaction_defense: Optional[dict] = Field(
+        default=None,
+        description="Pre-transaction financial hold status, leakage metrics, and defense interception steps",
+    )
+    session_aggregate: Optional[dict] = Field(
+        default=None,
+        description="Multi-chunk temporal aggregated threat intelligence for the call session",
+    )
 
 
 class BatchDetectRequest(BaseModel):

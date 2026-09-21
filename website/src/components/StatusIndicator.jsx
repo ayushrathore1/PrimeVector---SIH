@@ -4,6 +4,7 @@ import { CheckCircle2, AlertTriangle, XCircle, Clock, Server } from 'lucide-reac
 export default function StatusIndicator({ service, health, onRefresh }) {
   const isOnline = health?.status === 'online';
   const isDegraded = health?.status === 'degraded';
+  const isUnobservable = health?.status === 'unobservable';
 
   let statusBadge = (
     <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-sm">
@@ -11,7 +12,13 @@ export default function StatusIndicator({ service, health, onRefresh }) {
     </span>
   );
 
-  if (isDegraded) {
+  if (isUnobservable) {
+    statusBadge = (
+      <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-slate-100 text-slate-800 border border-slate-300 shadow-sm">
+        <AlertTriangle size={13} /> gRPC HEALTH UNAVAILABLE
+      </span>
+    );
+  } else if (isDegraded) {
     statusBadge = (
       <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-sm">
         <AlertTriangle size={13} /> DEGRADED ({health.statusCode})
@@ -37,7 +44,7 @@ export default function StatusIndicator({ service, health, onRefresh }) {
               {service.name}
             </h4>
             <span className="text-[11px] font-mono font-semibold text-forest/70">
-              Port :{service.port} • {service.language}
+              {service.location === 'colab' ? 'Google Colab via ngrok' : 'Local PC'} • Port :{service.port}
             </span>
           </div>
         </div>
@@ -45,16 +52,16 @@ export default function StatusIndicator({ service, health, onRefresh }) {
       </div>
 
       <p className="text-xs text-forest/80 leading-relaxed mb-4 min-h-[36px] font-normal">
-        {service.role}
+        {service.desc}
       </p>
 
       <div className="pt-3 border-t border-forest/10 flex items-center justify-between text-xs font-mono text-forest/70 font-semibold">
         <span className="px-2 py-0.5 rounded bg-white border border-forest/15 text-[10px] text-forest font-bold">
-          {service.tier}
+          {service.location === 'colab' ? 'COLAB / NGROK' : 'LOCAL'}
         </span>
         <div className="flex items-center gap-1">
           <Clock size={12} className="text-forest/60" />
-          <span>{health?.latencyMs !== undefined ? `${health.latencyMs} ms` : '—'}</span>
+          <span>{typeof health?.latencyMs === 'number' ? `${health.latencyMs} ms` : 'not measured'}</span>
         </div>
       </div>
     </div>

@@ -125,26 +125,17 @@ async def _do_process_pipeline(req: PipelineRequest) -> PipelineResponse:
 
     if extraction is None:
         logger.warning(
-            "session=%s: feature extraction returned None — using acoustic fallback for pipeline",
+            "session=%s: feature extraction unavailable; preserving unavailable signals",
             req.session_id,
         )
-        from models import ExtractionResponse, LogMelFeatures
-        extraction_for_downstream = ExtractionResponse(
-            request_id=req.session_id,
-            log_mel=LogMelFeatures(frames=[[0.0] * 128 for _ in range(10)], n_mels=128),
-            speaker_embedding=[0.0] * 192,
-            duration_ms=5000.0,
-        )
+        flat_features: list[float] = []
+        live_embedding = None
     else:
         response.extraction = extraction
-        extraction_for_downstream = extraction
+        flat_features = [val for frame in extraction.log_mel.frames for val in frame]
+        live_embedding = extraction.speaker_embedding
 
     # ---- Step 2: Parallel — spoof detection + enrollment check + content risk ----
-    # Flatten log_mel frames to a 1-D feature vector for the spoof
-    # detector (it expects a flat float list, not a 2-D frame array).
-    flat_features = [
-        val for frame in extraction_for_downstream.log_mel.frames for val in frame
-    ]
 
     spoof_task = client.detect_spoof(
         call_session_id=req.session_id,
@@ -194,12 +185,12 @@ async def _do_process_pipeline(req: PipelineRequest) -> PipelineResponse:
         )
 
     # -- Build speaker-match signal --
-    if enrollment_result is not None and enrollment_result.status == "ENROLLED":
+    if enrollment_result is not None and enrollment_result.status == "ENROLLED" and live_embedding is not None:
         # Actually compare live embedding against enrolled voiceprint
         match_result = await client.match_speaker(
             tenant_id=req.tenant_id,
             subject_id=req.subject_id,
-            live_embedding=extraction_for_downstream.speaker_embedding,
+            live_embedding=live_embedding,
         )
         if match_result is not None:
             speaker_match_signal = match_result
@@ -212,7 +203,7 @@ async def _do_process_pipeline(req: PipelineRequest) -> PipelineResponse:
                 detail=f"match call failed for voiceprint {enrollment_result.voiceprint_id}",
             )
     else:
-        detail = "enrollment-service unreachable"
+        detail = "enrollment-service unreachable or feature extraction unavailable"
         if enrollment_result is not None:
             detail = f"enrollment status: {enrollment_result.status}"
         speaker_match_signal = SignalIn(

@@ -22,7 +22,7 @@ adb install android/app/build/outputs/apk/debug/app-debug.apk`;
             <Smartphone size={14} className="text-forest" />
             <span>Mobile Edge Client</span>
           </div>
-          <h1 className="font-display text-4xl font-extrabold text-forest tracking-tight">PrimeVector Android Client Showcase</h1>
+          <h1 className="font-display text-4xl font-extrabold text-forest tracking-tight">SatyaDhVani 2 Android Client Showcase</h1>
           <p className="text-xs font-mono text-forest/60 mt-1">
             Live edge client featuring real-time mic-based voice ingestion & Sarvam STT streaming
           </p>

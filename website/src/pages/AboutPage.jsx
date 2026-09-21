@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Brain, Cpu, Database, Shield, Globe, Layers, Sparkles, AlertTriangle, ArrowUpRight, Radio, PhoneCall, Building2, Lock, CheckCircle2, Server, Workflow, FileText, Activity } from 'lucide-react';
+import TeamSection from '../components/TeamSection';
 
 export default function AboutPage() {
   const layersDetail = [
@@ -290,6 +291,9 @@ export default function AboutPage() {
             </p>
           </div>
         </section>
+
+        {/* Core Engineering & Research Team */}
+        <TeamSection />
 
       </div>
     </div>

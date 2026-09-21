@@ -19,7 +19,7 @@ PORT = 9000
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIST = os.path.join(BASE_DIR, "frontend", "dist")
 WEBSITE_DIST = os.path.join(BASE_DIR, "website", "dist")
-DASHBOARD_DIR = FRONTEND_DIST if os.path.isfile(os.path.join(FRONTEND_DIST, "index.html")) else (WEBSITE_DIST if os.path.isfile(os.path.join(WEBSITE_DIST, "index.html")) else BASE_DIR)
+DASHBOARD_DIR = WEBSITE_DIST if os.path.isfile(os.path.join(WEBSITE_DIST, "index.html")) else (FRONTEND_DIST if os.path.isfile(os.path.join(FRONTEND_DIST, "index.html")) else BASE_DIR)
 
 # ── Health Check Cache ──
 # Prevents ngrok tunnel / local proxy stampedes when multiple components poll or refresh
@@ -102,9 +102,10 @@ class ProxyHandler(http.server.SimpleHTTPRequestHandler):
         if port == 8080:
             port = 8085
 
-        # Route ML services through Colab tunnel if available
+        # Route ML services: in local lightweight mode, spoof-detection-service (8002) runs locally on PC.
+        # Only heavy feat (8001) and enroll (8003) are routed to Colab if tunnel is provided.
         colab_url = COLAB_TUNNEL_URL
-        colab_prefix_map = {8001: "/feat", 8002: "/spoof", 8003: "/enroll"}
+        colab_prefix_map = {8001: "/feat", 8003: "/enroll"}
 
         if colab_url and port in colab_prefix_map:
             url = f"{colab_url}{colab_prefix_map[port]}{path}"
@@ -158,8 +159,11 @@ class ProxyHandler(http.server.SimpleHTTPRequestHandler):
             body = self.rfile.read(content_length) if content_length > 0 else None
 
         req = urllib.request.Request(url, data=body, method=method)
-        req.add_header("Content-Type", self.headers.get("Content-Type", "application/json"))
-        # ngrok free tier shows a browser warning page; this header bypasses it
+        for h_key, h_val in self.headers.items():
+            if h_key.lower() not in ("host", "content-length"):
+                req.add_header(h_key, h_val)
+        if "Content-Type" not in req.headers:
+            req.add_header("Content-Type", "application/json")
         req.add_header("ngrok-skip-browser-warning", "true")
 
         # Fast 0.5s timeout for health checks so status updates instantly without hanging

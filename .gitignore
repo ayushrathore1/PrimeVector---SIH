@@ -71,3 +71,9 @@ ml/dhwani/notebooks/*.zip
 *.safetensors
 *.tgz
 
+# Databases, temporary scratch & local logs
+*.db
+logs/
+scratch/
+motion-anything/
+

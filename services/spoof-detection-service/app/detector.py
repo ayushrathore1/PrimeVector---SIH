@@ -197,18 +197,22 @@ class SpoofDetector:
             result = future.result(timeout=self._timeout_s)
 
             logit = float(result["logit"])
-            score = _sigmoid(logit)
+            score = float(result.get("score", _sigmoid(logit)))
             confidence = _confidence_from_logit(logit)
 
             score = max(0.0, min(1.0, score))
             confidence = max(0.0, min(1.0, confidence))
 
-            # Include architecture info from the registry metadata
+            # Include architecture & speech status info from the registry metadata
             arch = trained_entry.metadata.get("architecture", "unknown")
+            speech_status = result.get("speech_status", "VOICE")
             detail = (
                 f"model={version}, path=trained-model, "
+                f"speech_status={speech_status}, "
                 f"architecture={arch}"
             )
+            if "detail" in result:
+                detail += f", info={result['detail']}"
 
             logger.info(
                 "Spoof detection (trained model): call_session_id=%s, "

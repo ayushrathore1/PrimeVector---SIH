@@ -150,7 +150,7 @@ def load_deepfake_model():
 
     epoch = checkpoint.get("epoch", "unknown")
     val_acc = checkpoint.get("val_accuracy", 0.0)
-    version = f"koyelog-resnet18-gru-attn-ep{epoch}-acc{val_acc:.4f}"
+    version = f"dhvani-v2-resnet18-gru-attn-ep{epoch}-acc{val_acc:.4f}"
 
     param_count = sum(p.numel() for p in model.parameters())
     mem_mb = sum(p.numel() * p.element_size() for p in model.parameters()) / (1024 * 1024)
@@ -188,12 +188,12 @@ def predict_from_pcm_base64(
     import torch
     import librosa
 
-    # Step 1: Base64 decode -> PCM int16 bytes (in-memory only)
+    # Step 1: Base64 decode -> PCM int16 or container bytes (in-memory only)
     pcm_bytes = base64.b64decode(audio_pcm_base64)
 
-    # Step 2: PCM int16 -> float32
-    audio_int16 = np.frombuffer(pcm_bytes, dtype=np.int16)
-    audio_float32 = audio_int16.astype(np.float32) / 32768.0
+    # Step 2: Universal decode -> float32 mono
+    from model.inference import decode_pcm_bytes
+    audio_float32 = decode_pcm_bytes(pcm_bytes, target_sr=sample_rate)
 
     # Step 3: Pad/truncate to 4 seconds
     if len(audio_float32) > MAX_SAMPLES:

@@ -32,6 +32,7 @@
 """
 
 import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 import sys
 import time
 import signal
@@ -133,7 +134,7 @@ LOCAL_SERVICES = [
         "app_dir": os.path.join(BASE_DIR, "services", "spoof-detection-service", "app"),
         "port": 8002,
         "module": "main:app",
-        "env": {"SPOOF_MODEL_REGISTRY_BACKEND": "deepfake"},
+        "env": {"SPOOF_MODEL_REGISTRY_BACKEND": "dhwani"},
     },
     {
         "name": "policy-threshold-engine",

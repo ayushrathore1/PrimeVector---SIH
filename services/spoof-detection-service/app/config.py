@@ -18,9 +18,9 @@ class Settings(BaseSettings):
 
     # Maximum milliseconds to wait for model inference before treating
     # the call as a timeout (and returning available=false).
-    # Full pipeline (decode+mel+forward) averages ~30ms on CPU;
-    # 500ms provides generous headroom for cold starts and load spikes.
-    inference_timeout_ms: int = 500
+    # 5000ms provides generous headroom for multi-chunk audio on CPU.
+    inference_timeout_ms: int = 5000
+
 
     # Which ModelRegistry backend to use.
     #   - "deepfake": Trained ResNet18+GRU+Attention model (production)
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     #     trained on Colab with Vaani + spoof datasets)
     #   - "heuristic": Log-mel heuristic scorer v4.0 (fallback only)
     #   - "stub": No model registered (available=false for all requests)
-    model_registry_backend: str = "deepfake"
+    model_registry_backend: str = "dhwani"
 
     # Logging level for structured logs.
     log_level: str = "INFO"
