@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: satyadhvani-firewall
+    runtime: docker
+    plan: free
+    region: oregon
+    healthCheckPath: /healthz
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: SPOOF_MODEL_REGISTRY_BACKEND
+        value: dhwani

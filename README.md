@@ -7,6 +7,7 @@
 
 | Guide | Description |
 |---|---|
+| 🚀 [**DEPLOYMENT_GUIDE.md**](docs/DEPLOYMENT_GUIDE.md) | **100% Free Cloud Deployment:** Step-by-step 5-minute setup on Render (Docker Backend) & Vercel (Frontend) with zero credit cards. |
 | 📜 [**SIH_PROJECT_BRIEFING.md**](docs/SIH_PROJECT_BRIEFING.md) | **SIH Master Briefing:** Complete executive summary, architecture workflow, tech stack rationale, feasibility & viability, and judge Q&A sheet. |
 | 🗣️ [**SIH_SIMPLE_EXPLANATION.md**](docs/SIH_SIMPLE_EXPLANATION.md) | **Dual-Layer Easy Explanation:** Non-technical analogies + technical term definitions for every single microservice. |
 | 🤖 [**DELEGATION_PROMPTS.md**](docs/DELEGATION_PROMPTS.md) | **Developer Prompt Packets:** Independent prompts for 4 developers to build/test parallel microservices. |

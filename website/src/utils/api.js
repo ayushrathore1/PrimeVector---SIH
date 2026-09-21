@@ -1,11 +1,36 @@
 /**
+/**
  * PrimeVector API Client
  *
  * Connects to the PrimeVector API Gateway for deepfake detection,
  * API key management, and usage tracking.
  */
 
-const API_BASE = import.meta.env.VITE_API_BASE || '/api/8090';
+/**
+ * Resolves the backend host origin and API Gateway URL based on VITE_API_BASE.
+ * Supports:
+ *   - Local/Relative default: '/api/8090' (Origin: '')
+ *   - Full Origin: 'https://my-space.hf.space' (Origin: 'https://my-space.hf.space', API_BASE: 'https://my-space.hf.space/api/8090')
+ *   - Full Path: 'https://my-space.hf.space/api/8090' (Origin: 'https://my-space.hf.space', API_BASE: 'https://my-space.hf.space/api/8090')
+ */
+const rawEnvBase = (import.meta.env.VITE_API_BASE || '/api/8090').trim().replace(/\/+$/, '');
+
+function resolveBackendUrls(raw) {
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    try {
+      const parsed = new URL(raw);
+      const origin = parsed.origin;
+      const path = parsed.pathname.replace(/\/+$/, '');
+      const apiBase = (path === '' || path === '/') ? `${origin}/api/8090` : `${origin}${path}`;
+      return { origin, apiBase };
+    } catch {
+      return { origin: '', apiBase: raw };
+    }
+  }
+  return { origin: '', apiBase: raw };
+}
+
+const { origin: BACKEND_ORIGIN, apiBase: API_BASE } = resolveBackendUrls(rawEnvBase);
 
 // ── Detection ─────────────────────────────────────────────
 
@@ -127,7 +152,7 @@ export async function detectDhwaniLiveStream({
 
   // Tier 2: Direct Spoof Detection Service (/v1/detect on port 8002)
   try {
-    const resp = await fetch('/api/8002/v1/detect', {
+    const resp = await fetch(`${BACKEND_ORIGIN}/api/8002/v1/detect`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -173,7 +198,7 @@ export async function detectDhwaniLiveStream({
 
   // Tier 3: Orchestrator Pipeline (/v1/pipeline/process on port 8080/8085)
   try {
-    const resp = await fetch('/api/8080/v1/pipeline/process', {
+    const resp = await fetch(`${BACKEND_ORIGIN}/api/8080/v1/pipeline/process`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -449,7 +474,7 @@ export async function checkServiceHealth(service) {
   if (!service.healthPath) return { status: 'unobservable', statusCode: null, latencyMs: null };
   const startTime = performance.now();
   try {
-    const resp = await fetch(`/api/${service.port}${service.healthPath}`, {
+    const resp = await fetch(`${BACKEND_ORIGIN}/api/${service.port}${service.healthPath}`, {
       signal: AbortSignal.timeout(2500),
     });
     const latency = Math.round(performance.now() - startTime);
@@ -471,7 +496,7 @@ export async function checkServiceHealth(service) {
 export async function executePipelineProcess(payload) {
   const startTime = performance.now();
   try {
-    const resp = await fetch('/api/8080/v1/pipeline/process', {
+    const resp = await fetch(`${BACKEND_ORIGIN}/api/8080/v1/pipeline/process`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
