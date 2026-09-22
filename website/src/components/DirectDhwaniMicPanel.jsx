@@ -804,6 +804,6 @@ export default function DirectDhwaniMicPanel({ apiKey }) {
   );
 }
 
-export { DirectDhwaniMicPanel as DirectSatyaDhVaniMicPanel };
+export { DirectDhwaniMicPanel, DirectDhwaniMicPanel as DirectSatyaDhVaniMicPanel };
 
 
