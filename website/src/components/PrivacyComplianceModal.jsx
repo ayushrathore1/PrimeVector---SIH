@@ -121,7 +121,7 @@ export default function PrivacyComplianceModal({ isOpen, onClose }) {
               </div>
               <div className="p-2.5 rounded-lg bg-white border border-forest/10 shadow-xs">
                 <div className="text-forest/60 text-[10px] uppercase font-bold">Step 3</div>
-                <div className="font-bold text-forest mt-0.5">Dhwani Classifier</div>
+                <div className="font-bold text-forest mt-0.5">SatyaDhVani Classifier</div>
                 <div className="text-[9px] text-forest/60 mt-1">Spectral features only</div>
               </div>
               <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-900 shadow-xs">

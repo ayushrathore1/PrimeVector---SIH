@@ -171,14 +171,15 @@ class FusionAttention(nn.Module):
         return torch.cat(weighted_parts, dim=1)
 
 
-class DhwaniAdvanced(nn.Module):
+class SatyaDhVaniAdvanced(nn.Module):
     """
-    Multi-branch voice deepfake detector with Log-Mel + Prosody + SSL.
+    Multi-branch voice deepfake detector combining:
+      1. Log-Mel spectrogram CNN branch (always active)
+      2. Prosody branch: F0, jitter, shimmer, pause features (optional)
+      3. SSL branch: pre-extracted WavLM/wav2vec2 embeddings (optional)
 
-    Input:
-        mel:     (batch, 1, 80, T) Log-Mel spectrogram
-        prosody: (batch, prosody_dim) or (batch, T, prosody_dim)  [optional]
-        ssl:     (batch, ssl_dim)  [optional, pre-extracted embeddings]
+    Inputs:
+        mel:     (batch, 1, 80, time_frames)  [optional, pre-extracted embeddings]
 
     Output: (batch, 1) raw logit
 
@@ -291,19 +292,23 @@ class DhwaniAdvanced(nn.Module):
         return self.classifier(fused)
 
 
-def load_dhwani_advanced(checkpoint_path: str, device: str = "cpu"):
+# Backward compatibility alias
+DhwaniAdvanced = SatyaDhVaniAdvanced
+
+
+def load_satyadhvani_advanced(checkpoint_path: str, device: str = "cpu"):
     """
-    Load a trained Dhwani-Advanced model from a checkpoint file.
+    Load a trained SatyaDhVani-Advanced model from a checkpoint file.
 
     Returns:
-        model: DhwaniAdvanced in eval mode
+        model: SatyaDhVaniAdvanced in eval mode
         version: str
         metrics: dict
     """
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
     config = checkpoint.get("config", {})
-    model = DhwaniAdvanced(
+    model = SatyaDhVaniAdvanced(
         n_mels=config.get("n_mels", 80),
         prosody_dim=config.get("prosody_dim", 10),
         ssl_dim=config.get("ssl_dim", 768),
@@ -313,7 +318,13 @@ def load_dhwani_advanced(checkpoint_path: str, device: str = "cpu"):
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
     model.eval()
 
-    version = checkpoint.get("version", "Dhwani-Advanced-unknown")
+    raw_version = checkpoint.get("version", "SatyaDhVani-Advanced-unknown")
+    version = raw_version.replace("Dhwani", "SatyaDhVani") if "Dhwani" in raw_version else raw_version
     metrics = checkpoint.get("metrics", {})
 
     return model, version, metrics
+
+
+# Backward compatibility alias
+load_dhwani_advanced = load_satyadhvani_advanced
+

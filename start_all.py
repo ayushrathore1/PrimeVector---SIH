@@ -5,7 +5,7 @@
 ==========================================================================
   Boots up the entire SatyaDhVani 2 ecosystem in 1 command:
     1. Loads environment variables (.env / Colab Ngrok Tunnel URL).
-    2. Launches local microservices & Dhwani 2 deepfake detection engine (:8002).
+    2. Launches local microservices & SatyaDhVani 2 deepfake detection engine (:8002).
     3. Launches API Gateway (:8090) & Unified Dashboard (:9000).
     4. Launches React Vite Web Application on http://localhost:5173.
     5. Performs real-time cluster health verification.
@@ -80,7 +80,7 @@ def is_port_in_use(port, path=""):
 
 def start_backend_services():
     """Start local microservices backend script."""
-    print(f"{CYAN}▶ Launching Backend Microservices & Dhwani 2 Neural Engine...{RESET}")
+    print(f"{CYAN}▶ Launching Backend Microservices & SatyaDhVani 2 Neural Engine...{RESET}")
     cmd = [sys.executable, "run_local_lightweight.py"]
     try:
         proc = subprocess.Popen(cmd, cwd=BASE_DIR)
@@ -108,7 +108,7 @@ def check_cluster_health():
     """Ping health matrix across platform services."""
     services = [
         ("Risk Fusion Engine", 8000, "healthz"),
-        ("Dhwani 2 Deepfake Model", 8002, "healthz"),
+        ("SatyaDhVani 2 Deepfake Model", 8002, "healthz"),
         ("Policy Threshold Engine", 8004, "healthz"),
         ("Alerting Service", 8005, "healthz"),
         ("Pipeline Orchestrator", 8085, "healthz"),

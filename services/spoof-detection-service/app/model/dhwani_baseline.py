@@ -50,10 +50,10 @@ class ConvBlock(nn.Module):
 
 
 # ============================================================
-# v1: DhwaniBaseline (backward compatible)
+# v1: SatyaDhVaniBaseline (backward compatible)
 # ============================================================
 
-class DhwaniBaseline(nn.Module):
+class SatyaDhVaniBaseline(nn.Module):
     """
     v1: 4-block CNN for voice deepfake detection on 80-band Log-Mel.
 
@@ -97,8 +97,12 @@ class DhwaniBaseline(nn.Module):
         return x
 
 
+# Backward compatibility alias
+DhwaniBaseline = SatyaDhVaniBaseline
+
+
 # ============================================================
-# v2: DhwaniV2 — ResNet-SE + BiGRU + Multi-Head Attention
+# v2: SatyaDhVaniV2 — ResNet-SE + BiGRU + Multi-Head Attention
 # ============================================================
 
 class SEBlock(nn.Module):
@@ -148,7 +152,7 @@ class ResBlock(nn.Module):
         return F.relu(out)
 
 
-class DhwaniV2(nn.Module):
+class SatyaDhVaniV2(nn.Module):
     """
     v2: ResNet-SE + BiGRU + Multi-Head Attention deepfake detector.
 
@@ -227,14 +231,18 @@ class DhwaniV2(nn.Module):
         return self.classifier(pooled)
 
 
+# Backward compatibility alias
+DhwaniV2 = SatyaDhVaniV2
+
+
 # ============================================================
 # Loaders
 # ============================================================
 
-def load_dhwani_baseline(checkpoint_path: str, device: str = "cpu"):
+def load_satyadhvani_baseline(checkpoint_path: str, device: str = "cpu"):
     """
-    Load a trained Dhwani model from a checkpoint file.
-    Auto-detects v1 (DhwaniBaseline) vs v2 (DhwaniV2) from checkpoint config.
+    Load a trained SatyaDhVani model from a checkpoint file.
+    Auto-detects v1 (SatyaDhVaniBaseline) vs v2 (SatyaDhVaniV2) from checkpoint config.
 
     Returns:
         model: nn.Module in eval mode
@@ -248,23 +256,33 @@ def load_dhwani_baseline(checkpoint_path: str, device: str = "cpu"):
     architecture = config.get("architecture", "")
 
     # v2 detection: check for v2-specific config fields
-    if "DhwaniV2" in architecture or config.get("n_channels", 1) == 3:
-        model = DhwaniV2(
+    if "SatyaDhVaniV2" in architecture or "DhwaniV2" in architecture or "SatyaDhVani" in architecture or config.get("n_channels", 1) == 3:
+        model = SatyaDhVaniV2(
             n_channels=config.get("n_channels", 3),
             n_mels=config.get("n_mels", 80),
         )
     else:
-        model = DhwaniBaseline(
+        model = SatyaDhVaniBaseline(
             n_mels=config.get("n_mels", 80),
         )
 
     model.load_state_dict(checkpoint["model_state_dict"], strict=True)
     model.eval()
 
-    version = checkpoint.get("version", "Dhwani-unknown")
+    raw_version = checkpoint.get("version", "SatyaDhVani-v2.0")
+    if "Dhwani" in raw_version and "SatyaDhVani" not in raw_version:
+        version = raw_version.replace("Dhwani", "SatyaDhVani")
+    else:
+        version = raw_version
+
     metrics = checkpoint.get("metrics", {})
 
     param_count = sum(p.numel() for p in model.parameters())
     mem_mb = sum(p.numel() * p.element_size() for p in model.parameters()) / (1024 * 1024)
 
     return model, version, metrics, param_count, mem_mb
+
+
+# Backward compatibility alias
+load_dhwani_baseline = load_satyadhvani_baseline
+

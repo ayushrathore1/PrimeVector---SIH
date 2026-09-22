@@ -17,7 +17,7 @@ This guide provides a step-by-step walkthrough to deploy the entire **SatyaDhVan
 
 ## ⚡ Step 1: Deploy Backend Microservices on Render (3 Minutes)
 
-Render builds and runs our multi-stage `Dockerfile` directly from GitHub. It hosts all 8 microservices, the Dhwani v2 neural model, policy threshold engine, and reverse proxy in one unified container.
+Render builds and runs our multi-stage `Dockerfile` directly from GitHub. It hosts all 8 microservices, the SatyaDhVani v2 neural model, policy threshold engine, and reverse proxy in one unified container.
 
 1. **Sign in to Render**:
    - Go to [dashboard.render.com](https://dashboard.render.com).
@@ -38,7 +38,7 @@ Render builds and runs our multi-stage `Dockerfile` directly from GitHub. It hos
 4. **Environment Variables**:
    Under **Environment Variables**, verify or add:
    - `PORT` = `10000`
-   - `SPOOF_MODEL_REGISTRY_BACKEND` = `dhwani`
+   - `SPOOF_MODEL_REGISTRY_BACKEND` = `satyadhvani`
 
 5. **Deploy**:
    - Click **Create Web Service**.
@@ -117,7 +117,7 @@ Render builds and runs our multi-stage `Dockerfile` directly from GitHub. It hos
 
 3. **Verify Interactive Frontend**:
    - Open your Vercel URL (`https://primevector.vercel.app`).
-   - Navigate to the **Direct Dhwani Live Detection** panel.
+   - Navigate to the **Direct SatyaDhVani Live Detection** panel.
    - Speak into your microphone $\rightarrow$ verify real-time voice classification and low latency!
 
 ---

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Dhwani v2 — Voice Deepfake Detection Demo
-==========================================
+SatyaDhVani v2 — Voice Deepfake Detection Demo
+=============================================
 
-Test the trained Dhwani v2 model with any WAV/MP3 audio file.
+Test the trained SatyaDhVani v2 model with any WAV/MP3 audio file.
 Scores audio as bonafide (real human) vs spoof (AI-generated).
 
 Usage:
@@ -30,21 +30,28 @@ sys.path.insert(0, os.path.join(PROJECT_ROOT, "services", "spoof-detection-servi
 
 
 def load_model(checkpoint_path=None):
-    """Load the Dhwani v2 model using the official loader."""
-    from model.dhwani_baseline import load_dhwani_baseline
+    """Load the SatyaDhVani v2 model using the official loader."""
+    from model.satyadhvani_baseline import load_satyadhvani_baseline
 
     if checkpoint_path is None:
-        checkpoint_path = os.path.join(
-            PROJECT_ROOT, "ml", "dhwani", "checkpoints", "dhwani_baseline_v2.pt"
-        )
+        candidates = [
+            os.path.join(PROJECT_ROOT, "services", "spoof-detection-service", "app", "satyadhvani_baseline_v2.pt"),
+            os.path.join(PROJECT_ROOT, "services", "spoof-detection-service", "app", "dhwani_baseline_v2.pt"),
+            os.path.join(PROJECT_ROOT, "ml", "dhwani", "checkpoints", "satyadhvani_baseline_v2.pt"),
+            os.path.join(PROJECT_ROOT, "ml", "dhwani", "checkpoints", "dhwani_baseline_v2.pt"),
+        ]
+        for c in candidates:
+            if os.path.isfile(c):
+                checkpoint_path = c
+                break
 
-    if not os.path.isfile(checkpoint_path):
+    if not checkpoint_path or not os.path.isfile(checkpoint_path):
         print(f"ERROR: Model not found at {checkpoint_path}")
         print("Download it from Colab or run the training notebook first.")
         sys.exit(1)
 
     print(f"Loading model: {checkpoint_path}")
-    model, version, metrics, param_count, mem_mb = load_dhwani_baseline(
+    model, version, metrics, param_count, mem_mb = load_satyadhvani_baseline(
         checkpoint_path, device="cpu"
     )
 
@@ -168,7 +175,7 @@ Examples:
         sys.exit(1)
 
     print("=" * 60)
-    print("  DHWANI v2 — Voice Deepfake Detection")
+    print("  SatyaDhVani v2 — Voice Deepfake Detection")
     print("=" * 60)
 
     model, config = load_model(args.checkpoint)

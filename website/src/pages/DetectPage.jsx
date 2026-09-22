@@ -19,13 +19,13 @@ import AudioUploader from '../components/AudioUploader';
 import DetectionResult from '../components/DetectionResult';
 import { detectAudio } from '../utils/api';
 import LiveDetectionPanel from '../components/LiveDetectionPanel';
-import DirectDhwaniMicPanel from '../components/DirectDhwaniMicPanel';
+import DirectSatyaDhVaniMicPanel, { DirectDhwaniMicPanel } from '../components/DirectDhwaniMicPanel';
 import PrivacyComplianceModal from '../components/PrivacyComplianceModal';
 
 const DEFAULT_API_KEY = 'pv_live_demo_000000000000000000000000';
 
 export default function DetectPage() {
-  const [mode, setMode] = useState('dhwani-mic'); // 'dhwani-mic' | 'upload' | 'live'
+  const [mode, setMode] = useState('satyadhvani-mic'); // 'satyadhvani-mic' | 'upload' | 'live'
   const [isProcessing, setIsProcessing] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -90,14 +90,14 @@ export default function DetectPage() {
         {/* Right: Ingestion Mode Pill Switchers */}
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
-            onClick={() => setMode('dhwani-mic')}
+            onClick={() => setMode('satyadhvani-mic')}
             className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-mono font-bold transition-all cursor-pointer shadow-xs ${
-              mode === 'dhwani-mic'
+              (mode === 'satyadhvani-mic' || mode === 'dhwani-mic')
                 ? 'bg-[#0F1C0B] text-[#C5FF34] border border-[#0F1C0B]'
                 : 'bg-white text-[#0B150A] border border-[#D5DDCF] hover:bg-[#FAFBF8]'
             }`}
           >
-            <Mic size={14} className={mode === 'dhwani-mic' ? 'text-[#C5FF34]' : 'text-[#0B150A]'} />
+            <Mic size={14} className={(mode === 'satyadhvani-mic' || mode === 'dhwani-mic') ? 'text-[#C5FF34]' : 'text-[#0B150A]'} />
             <span>Direct SatyaDhVani Mic</span>
           </button>
           
@@ -131,17 +131,17 @@ export default function DetectPage() {
       {/* ── Main Cockpit Frame ── */}
       <main className="flex-1 w-full flex flex-col justify-start">
         <AnimatePresence mode="wait">
-          {mode === 'dhwani-mic' ? (
-            /* ── Cockpit Mode 1: Direct Dhwani Microphone Stream ── */
+          {(mode === 'satyadhvani-mic' || mode === 'dhwani-mic') ? (
+            /* ── Cockpit Mode 1: Direct SatyaDhVani Microphone Stream ── */
             <motion.div
-              key="dhwani-mic"
+              key="satyadhvani-mic"
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.15 }}
               className="w-full h-full flex flex-col justify-center"
             >
-              <DirectDhwaniMicPanel apiKey={apiKey} />
+              <DirectSatyaDhVaniMicPanel apiKey={apiKey} />
             </motion.div>
           ) : mode === 'upload' ? (
             /* ── Cockpit Mode 2: Audio File Upload Split Cockpit ── */

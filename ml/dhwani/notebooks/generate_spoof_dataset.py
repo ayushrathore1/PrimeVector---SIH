@@ -1,10 +1,10 @@
 """
-Dhwani Spoof Dataset Generator — Sarvam AI + ElevenLabs
-=======================================================
+SatyaDhVani Spoof Dataset Generator — Sarvam AI + ElevenLabs
+============================================================
 
 Generates AI-synthesized voice samples using Sarvam AI (Indian languages)
 and ElevenLabs (multilingual) to build a real spoof dataset for training
-the Dhwani deepfake detector.
+the SatyaDhVani deepfake detector.
 
 WHY THIS IS BETTER THAN ASVspoof:
   - Uses the EXACT TTS systems you want to detect in production

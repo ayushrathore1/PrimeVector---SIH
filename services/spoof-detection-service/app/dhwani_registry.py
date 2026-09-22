@@ -33,27 +33,42 @@ logger = logging.getLogger(__name__)
 # Checkpoint search paths (relative to spoof-detection-service root)
 # v2 is preferred over v1 — loader auto-detects architecture from config.
 _CHECKPOINT_SEARCH_PATHS = [
-    # v2 (preferred): ml/dhwani/checkpoints/
+    # v2 (preferred SatyaDhVani): ml/dhwani/checkpoints/
+    os.path.join(
+        os.path.dirname(__file__), "..", "..", "..", "ml", "dhwani",
+        "checkpoints", "satyadhvani_baseline_v2.pt"
+    ),
     os.path.join(
         os.path.dirname(__file__), "..", "..", "..", "ml", "dhwani",
         "checkpoints", "dhwani_baseline_v2.pt"
     ),
     # v2 fallback: local app directory
+    os.path.join(os.path.dirname(__file__), "satyadhvani_baseline_v2.pt"),
     os.path.join(os.path.dirname(__file__), "dhwani_baseline_v2.pt"),
     # v1: ml/dhwani/checkpoints/ (backward compat)
+    os.path.join(
+        os.path.dirname(__file__), "..", "..", "..", "ml", "dhwani",
+        "checkpoints", "satyadhvani_baseline_v1.pt"
+    ),
     os.path.join(
         os.path.dirname(__file__), "..", "..", "..", "ml", "dhwani",
         "checkpoints", "dhwani_baseline_v1.pt"
     ),
     # v1 fallback: local app directory
+    os.path.join(os.path.dirname(__file__), "satyadhvani_baseline_v1.pt"),
     os.path.join(os.path.dirname(__file__), "dhwani_baseline_v1.pt"),
 ]
 
 _ADVANCED_CHECKPOINT_PATHS = [
     os.path.join(
         os.path.dirname(__file__), "..", "..", "..", "ml", "dhwani",
+        "checkpoints", "satyadhvani_advanced_v1.pt"
+    ),
+    os.path.join(
+        os.path.dirname(__file__), "..", "..", "..", "ml", "dhwani",
         "checkpoints", "dhwani_advanced_v1.pt"
     ),
+    os.path.join(os.path.dirname(__file__), "satyadhvani_advanced_v1.pt"),
     os.path.join(os.path.dirname(__file__), "dhwani_advanced_v1.pt"),
 ]
 
@@ -67,16 +82,16 @@ def _find_checkpoint(search_paths: list[str]) -> Optional[str]:
     return None
 
 
-class DhwaniModelRegistry:
+class SatyaDhVaniModelRegistry:
     """
-    ModelRegistry serving the Dhwani voice deepfake detector.
+    ModelRegistry serving the SatyaDhVani voice deepfake detector.
 
-    Loads the Dhwani model trained on Google Colab and serves it
+    Loads the SatyaDhVani model trained on Google Colab and serves it
     through the existing ModelRegistry interface. The API contract
     (SynthesisSignalResponse) is unchanged.
 
     Usage:
-        Set SPOOF_MODEL_REGISTRY_BACKEND=dhwani in environment.
+        Set SPOOF_MODEL_REGISTRY_BACKEND=satyadhvani (or dhwani) in environment.
     """
 
     def __init__(self, checkpoint_path: Optional[str] = None):
@@ -84,7 +99,7 @@ class DhwaniModelRegistry:
 
         self._entries = {}
 
-        # Try to load Dhwani checkpoint
+        # Try to load SatyaDhVani checkpoint
         if checkpoint_path is None:
             ckpt_path = _find_checkpoint(_CHECKPOINT_SEARCH_PATHS)
         elif os.path.isfile(checkpoint_path):
@@ -100,8 +115,8 @@ class DhwaniModelRegistry:
             self._load_baseline(ckpt_path)
         else:
             logger.warning(
-                "No Dhwani checkpoint found in search paths: %s. "
-                "Dhwani detection will be unavailable. Falling back "
+                "No SatyaDhVani checkpoint found in search paths: %s. "
+                "SatyaDhVani detection will be unavailable. Falling back "
                 "to heuristic for the generic spoof-detector slot.",
                 [os.path.abspath(p) for p in _CHECKPOINT_SEARCH_PATHS],
             )
@@ -117,24 +132,23 @@ class DhwaniModelRegistry:
         self._entries["spoof-detector/generic-heuristic"] = self._heuristic_entry
 
         logger.info(
-            "DhwaniModelRegistry initialized. Registered models: %s",
+            "SatyaDhVaniModelRegistry initialized. Registered models: %s",
             list(self._entries.keys()),
         )
 
     def _load_baseline(self, checkpoint_path: str):
-        """Load Dhwani-Baseline checkpoint."""
+        """Load SatyaDhVani-Baseline checkpoint."""
         from model_registry import ModelRegistryEntry, _heuristic_model_fn
-        from model.dhwani_baseline import load_dhwani_baseline
+        from model.dhwani_baseline import load_satyadhvani_baseline, SatyaDhVaniV2
         from model.inference import predict_chunks
 
-        model, version, metrics, param_count, mem_mb = load_dhwani_baseline(
+        model, version, metrics, param_count, mem_mb = load_satyadhvani_baseline(
             checkpoint_path, device="cpu"
         )
 
         # Detect v1 vs v2 for logging
-        from model.dhwani_baseline import DhwaniV2
-        is_v2 = isinstance(model, DhwaniV2)
-        arch_label = "DhwaniV2-ResNetSE-BiGRU-Attention" if is_v2 else "DhwaniBaseline-CNN-4block"
+        is_v2 = isinstance(model, SatyaDhVaniV2)
+        arch_label = "SatyaDhVaniV2-ResNetSE-BiGRU-Attention" if is_v2 else "SatyaDhVaniBaseline-CNN-4block"
         input_label = (
             "3-ch Log-Mel+Delta+Delta² (computed from raw PCM)" if is_v2
             else "80-band Log-Mel (computed from raw PCM)"
@@ -146,14 +160,14 @@ class DhwaniModelRegistry:
         )
 
         # Create callable that accepts audio_pcm_base64 or heuristic audio_features list
-        def _dhwani_predict(audio_data) -> dict:
+        def _satyadhvani_predict(audio_data) -> dict:
             if isinstance(audio_data, list):
                 return _heuristic_model_fn(audio_data)
             return predict_chunks(model, audio_data)
 
         self._torch_model = model
         self._trained_entry = ModelRegistryEntry(
-            model=_dhwani_predict,
+            model=_satyadhvani_predict,
             version=version,
             metadata={
                 "architecture": arch_label,
@@ -168,12 +182,12 @@ class DhwaniModelRegistry:
         self._entries["spoof-detector/generic"] = self._trained_entry
 
     def _load_advanced(self, checkpoint_path: str):
-        """Load Dhwani-Advanced checkpoint."""
+        """Load SatyaDhVani-Advanced checkpoint."""
         from model_registry import ModelRegistryEntry, _heuristic_model_fn
-        from model.dhwani_advanced import load_dhwani_advanced
+        from model.dhwani_advanced import load_satyadhvani_advanced
         from model.inference import predict_chunks
 
-        model, version, metrics = load_dhwani_advanced(
+        model, version, metrics = load_satyadhvani_advanced(
             checkpoint_path, device="cpu"
         )
 
@@ -183,24 +197,24 @@ class DhwaniModelRegistry:
         ) / (1024 * 1024)
 
         logger.info(
-            "Dhwani-Advanced loaded: version=%s, params=%s, memory=%.1fMB, "
+            "SatyaDhVani-Advanced loaded: version=%s, params=%s, memory=%.1fMB, "
             "checkpoint=%s",
             version, f"{param_count:,}", mem_mb, checkpoint_path,
         )
 
         # For advanced model, we only use the mel branch for PCM inference
         # (prosody and SSL require separate feature extraction pipelines)
-        def _dhwani_predict(audio_data) -> dict:
+        def _satyadhvani_predict(audio_data) -> dict:
             if isinstance(audio_data, list):
                 return _heuristic_model_fn(audio_data)
             return predict_chunks(model, audio_data)
 
         self._torch_model = model
         self._trained_entry = ModelRegistryEntry(
-            model=_dhwani_predict,
+            model=_satyadhvani_predict,
             version=version,
             metadata={
-                "architecture": "DhwaniAdvanced-MultiBranch",
+                "architecture": "SatyaDhVaniAdvanced-MultiBranch",
                 "input": "80-band Log-Mel + optional prosody + optional SSL",
                 "n_mels": 80,
                 "params": param_count,
@@ -211,7 +225,7 @@ class DhwaniModelRegistry:
 
     @property
     def trained_entry(self):
-        """The trained Dhwani model entry, for direct access by detector."""
+        """The trained SatyaDhVani model entry, for direct access by detector."""
         return self._trained_entry if hasattr(self, "_trained_entry") else None
 
     @property
@@ -224,3 +238,8 @@ class DhwaniModelRegistry:
 
     def list_models(self, prefix: str = "") -> list[str]:
         return [k for k in self._entries if k.startswith(prefix)]
+
+
+# Backward compatibility alias
+DhwaniModelRegistry = SatyaDhVaniModelRegistry
+

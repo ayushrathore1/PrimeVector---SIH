@@ -1,5 +1,5 @@
 """
-PrimeVector API Gateway — Public-facing REST API for Dhwani 2 voice
+PrimeVector API Gateway — Public-facing REST API for SatyaDhVani 2 voice
 deepfake detection.
 
 Provides:
@@ -95,7 +95,7 @@ app = FastAPI(
     title="PrimeVector API",
     version="1.0.0",
     description=(
-        "Voice deepfake detection API powered by Dhwani 2. "
+        "Voice deepfake detection API powered by SatyaDhVani 2. "
         "Detect AI-generated, cloned, and manipulated speech in real-time."
     ),
     lifespan=lifespan,
@@ -203,25 +203,28 @@ class SessionThreatTracker:
 
         chunks = session["chunks"]
         vocal_chunks = [c for c in chunks if c["is_vocal"]]
-        spoof_chunks = [c for c in vocal_chunks if c["score"] >= 0.50]
+        # Require decisive spoof (>= 0.70 with meaningful confidence) to count as a genuine spoof chunk
+        spoof_chunks = [c for c in vocal_chunks if c["score"] >= 0.70 and c["confidence"] >= 0.35]
+        suspicious_chunks = [c for c in vocal_chunks if 0.40 <= c["score"] < 0.70]
         peak_score = max([c["score"] for c in vocal_chunks], default=0.0)
         mean_vocal = sum(c["score"] for c in vocal_chunks) / len(vocal_chunks) if vocal_chunks else 0.0
 
-        has_threat_lock = len(spoof_chunks) > 0
+        # Threat Latch: an attack occurred in this session if multiple spoof chunks or decisive high score (>= 0.75)
+        has_threat_lock = len(spoof_chunks) >= 2 or (len(spoof_chunks) == 1 and peak_score >= 0.75)
         if has_threat_lock:
             # Threat Latch: an attack occurred in this session
             session_threat_score = max(peak_score, 0.90)
             session_verdict = "fake"
             explanation = (
                 f"PERSISTENT SECURITY LOCK: Synthetic AI speech detected in session "
-                f"(peak risk: {peak_score:.2f}, {len(spoof_chunks)} spoofed chunk(s)). "
+                f"(peak risk: {peak_score:.2f}, {len(spoof_chunks)} confirmed spoofed chunk(s)). "
                 f"Subsequent human speech does not clear this security hold."
             )
         elif vocal_chunks:
-            if any(c["score"] >= 0.35 for c in vocal_chunks):
-                session_threat_score = peak_score * 0.8 + mean_vocal * 0.2
+            if suspicious_chunks or peak_score >= 0.40:
+                session_threat_score = peak_score * 0.6 + mean_vocal * 0.4
                 session_verdict = "fake" if session_threat_score >= 0.50 else "real"
-                explanation = f"Acoustic anomaly detected across vocal chunks (peak: {peak_score:.2f})."
+                explanation = f"Acoustic anomaly detected across vocal chunks (peak: {peak_score:.2f}, mean: {mean_vocal:.2f})."
             else:
                 session_threat_score = mean_vocal
                 session_verdict = "real"
@@ -561,7 +564,7 @@ async def detect_batch(
             threshold=VERDICT_THRESHOLD,
             latency_ms=item_latency,
             model_version=result.get("detail", "").split("model=")[-1].split(",")[0] if "model=" in result.get("detail", "") else "unknown",
-            model_architecture="DhwaniV2",
+            model_architecture="SatyaDhVaniV2",
             timestamp=datetime.utcnow().isoformat(),
             policy_decision=policy_decision,
             final_action=final_action,
@@ -589,7 +592,7 @@ async def health():
                 data = resp.json()
                 model_loaded = data.get("model_registered", False)
                 model_version = data.get("registry_backend", "unknown")
-                model_arch = "DhwaniV2-ResNetSE-BiGRU-Attention"
+                model_arch = "SatyaDhVaniV2-ResNetSE-BiGRU-Attention"
     except Exception:
         pass
 
@@ -718,7 +721,7 @@ async def root():
     return {
         "name": "PrimeVector API",
         "version": "1.0.0",
-        "description": "Voice deepfake detection powered by Dhwani 2",
+        "description": "Voice deepfake detection powered by SatyaDhVani 2",
         "docs": "/docs",
         "health": "/v1/health",
     }

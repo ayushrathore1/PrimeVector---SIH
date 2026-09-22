@@ -21,7 +21,7 @@ from config import settings
 from detector import SpoofDetector
 from language_id import LanguageIdentifier
 from model_registry import ModelRegistry, StubModelRegistry, DeepfakeModelRegistry
-from dhwani_registry import DhwaniModelRegistry
+from dhwani_registry import SatyaDhVaniModelRegistry, DhwaniModelRegistry
 from schemas import SpoofDetectionRequest, SynthesisSignalResponse
 
 # Configure structured logging.
@@ -37,18 +37,15 @@ def _create_registry() -> ModelRegistry:
     Factory for the ModelRegistry backend.
 
     Backends:
+      - "satyadhvani" (or "dhwani"): Trained SatyaDhVani v2 ResNet-SE+BiGRU+Attention
+        voice deepfake detector. Production default.
       - "deepfake": Trained ResNet18+GRU+Attention deepfake detector
-        (koyelog/deepfake-voice-detector-sota). Production default.
+        (koyelog/deepfake-voice-detector-sota).
       - "heuristic": Log-mel heuristic scorer v4.0. Cannot distinguish
         real voice from modern TTS. Fallback only.
       - "stub": No model registered. All requests return available=false.
-
-    If the deepfake backend is requested but model download fails
-    (e.g. network issues pulling from HuggingFace), falls back to
-    heuristic so the service can still start and respond with
-    degraded-but-alive signals instead of crashing entirely.
     """
-    backend = settings.model_registry_backend
+    backend = settings.model_registry_backend.lower()
     if backend == "deepfake":
         try:
             return DeepfakeModelRegistry()
@@ -61,14 +58,17 @@ def _create_registry() -> ModelRegistry:
                 e,
             )
             return StubModelRegistry(enable_heuristic=True)
-    elif backend == "dhwani":
+    elif backend in ("satyadhvani", "dhwani"):
         try:
-            return DhwaniModelRegistry(
-                checkpoint_path=os.environ.get("SPOOF_DHWANI_CHECKPOINT_PATH") or None
+            ckpt_override = (
+                os.environ.get("SPOOF_SATYADHVANI_CHECKPOINT_PATH")
+                or os.environ.get("SPOOF_DHWANI_CHECKPOINT_PATH")
+                or None
             )
+            return SatyaDhVaniModelRegistry(checkpoint_path=ckpt_override)
         except Exception as e:
             logger.warning(
-                "Failed to initialize Dhwani model registry (%s). "
+                "Failed to initialize SatyaDhVani model registry (%s). "
                 "Falling back to heuristic backend.",
                 e,
             )
@@ -80,7 +80,7 @@ def _create_registry() -> ModelRegistry:
     else:
         raise ValueError(
             f"Unknown model_registry_backend='{backend}'. "
-            f"Available: 'deepfake', 'dhwani', 'heuristic', 'stub'."
+            f"Available: 'satyadhvani', 'dhwani', 'deepfake', 'heuristic', 'stub'."
         )
 
 

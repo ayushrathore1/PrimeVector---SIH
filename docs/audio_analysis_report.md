@@ -1,6 +1,6 @@
 # Comprehensive Audio Deepfake Analysis Report: WhatsApp Audio Samples
 
-This forensic report evaluates two audio recordings from the repository using the **Dhwani v2 Neural Deepfake Classifier** (ResNet-18 + Squeeze-and-Excitation + Bidirectional GRU + Multi-Head Attention) alongside physical acoustic signal analysis.
+This forensic report evaluates two audio recordings from the repository using the **SatyaDhVani v2 Neural Deepfake Classifier** (ResNet-18 + Squeeze-and-Excitation + Bidirectional GRU + Multi-Head Attention) alongside physical acoustic signal analysis.
 
 ---
 
@@ -10,7 +10,7 @@ This forensic report evaluates two audio recordings from the repository using th
 | :--- | :--- | :--- |
 | **Duration** | 46.63 seconds | 177.16 seconds (~2 min 57s) |
 | **File Size** | 907.8 KB (0.87 MB) | 7.09 MB (6.76 MB) |
-| **Dhwani v2 Deepfake Score** | **0.9739** (97.39% Spoof Probability) | **0.9938** (99.38% Spoof Probability) |
+| **SatyaDhVani v2 Deepfake Score** | **0.9739** (97.39% Spoof Probability) | **0.9938** (99.38% Spoof Probability) |
 | **Model Confidence** | **94.78%** (Logit: `+3.6190`) | **98.77%** (Logit: `+5.0819`) |
 | **Final Classification** | 🚨 **SPOOF (AI Synthetic / Cloned)** | 🚨 **SPOOF (AI Synthetic / Cloned)** |
 | **Chunk Spoof Ratio** | **100.0%** (30 / 30 windows $\ge 0.50$) | **100.0%** (117 / 117 windows $\ge 0.50$) |
@@ -28,7 +28,7 @@ This forensic report evaluates two audio recordings from the repository using th
 - **File Path**: [WhatsApp Video 2026-09-12 at 11.57.17 AM.mp3](file:///x:/SIH%202K26/WhatsApp%20Video%202026-09-12%20at%2011.57.17%20AM.mp3)
 - **File Format**: MPEG Audio Layer 3 (MP3), 48.0 kHz native $\rightarrow$ Resampled to 16.0 kHz mono PCM for inference
 
-#### 1. Dhwani v2 Model Inference
+#### 1. SatyaDhVani v2 Model Inference
 - **Global Spoof Score**: `0.9739`
 - **Confidence Metric**: `0.9478`
 - **Logit**: `+3.6190`
@@ -61,7 +61,7 @@ This forensic report evaluates two audio recordings from the repository using th
 - **File Path**: [AUD-20260817-WA0003.mp3](file:///x:/SIH%202K26/AUD-20260817-WA0003.mp3)
 - **File Format**: MPEG Audio Layer 3 (MP3), 48.0 kHz native $\rightarrow$ Resampled to 16.0 kHz mono PCM for inference
 
-#### 1. Dhwani v2 Model Inference
+#### 1. SatyaDhVani v2 Model Inference
 - **Global Spoof Score**: `0.9938`
 - **Confidence Metric**: `0.9877`
 - **Logit**: `+5.0819`
@@ -93,7 +93,7 @@ This forensic report evaluates two audio recordings from the repository using th
 | Feature / Metric | `WhatsApp Video ... AM.mp3` | `AUD-20260817-WA0003.mp3` | Natural Human Voice Baseline |
 | :--- | :--- | :--- | :--- |
 | **Duration** | 46.63 s | 177.16 s | Varies |
-| **Dhwani v2 Score** | **0.9739** (Spoof) | **0.9938** (Spoof) | $< 0.35$ (Real) |
+| **SatyaDhVani v2 Score** | **0.9739** (Spoof) | **0.9938** (Spoof) | $< 0.35$ (Real) |
 | **Confidence** | 94.78% | 98.77% | $> 90\%$ |
 | **Logit** | +3.6190 | +5.0819 | $< -2.0$ |
 | **Chunk Consistency** | 100% Spoof (30/30) | 100% Spoof (117/117) | $< 5\%$ Spoof chunks |

@@ -170,7 +170,7 @@ export default function DetectionResult({ result, scenarioContext = null, policy
                 <Globe size={10} className="text-forest" /> {languageCluster.split(' ')[0]}
               </span>
               <span className="bg-white/95 px-2.5 py-0.5 rounded-md border border-forest/15 flex items-center gap-1 font-bold text-forest">
-                <Cpu size={10} className="text-forest" /> {model_version || 'Dhwani v2 (BiGRU)'}
+                <Cpu size={10} className="text-forest" /> {model_version || 'SatyaDhVani v2 (BiGRU)'}
               </span>
             </div>
           </div>

@@ -7,7 +7,7 @@ const tiers = [
     name: 'Developer / Free',
     price: '₹0',
     period: 'forever',
-    description: 'Get started testing Dhwani 2 voice deepfake detection',
+    description: 'Get started testing SatyaDhVani 2 voice deepfake detection',
     icon: Sparkles,
     features: [
       '100 detections per day',

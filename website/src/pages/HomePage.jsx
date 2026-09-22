@@ -319,7 +319,7 @@ export default function HomePage({ setActiveTab }) {
 
         </section>
 
-        {/* ── DHWANI 2 ARCHITECTURE SPECIFICATIONS ────────────────────────── */}
+        {/* ── SATYADHVANI 2 ARCHITECTURE SPECIFICATIONS ────────────────────────── */}
         <section className="space-y-8">
           <div className="text-center max-w-2xl mx-auto space-y-2">
             <span className="text-xs font-mono font-semibold uppercase tracking-widest text-forest">
@@ -329,7 +329,7 @@ export default function HomePage({ setActiveTab }) {
               Engineered specifically for acoustic spoofing
             </h2>
             <p className="text-forest/70 text-sm">
-              Dhwani 2 combines residual squeeze-and-excitation layers with bi-directional recurrent units for low-latency acoustic classification.
+              SatyaDhVani 2 combines residual squeeze-and-excitation layers with bi-directional recurrent units for low-latency acoustic classification.
             </p>
           </div>
 
@@ -402,7 +402,7 @@ export default function HomePage({ setActiveTab }) {
   "confidence": 0.9579,
   "raw_logit": -2.8512,
   "latency_ms": 36.8,
-  "model_version": "Dhwani-v2.0"
+  "model_version": "SatyaDhVani-v2.0"
 }`}
             language="bash"
             title="cURL Request — Real vs Fake Voice Verification"

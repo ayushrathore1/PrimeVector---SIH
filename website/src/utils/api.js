@@ -34,7 +34,7 @@ const { origin: BACKEND_ORIGIN, apiBase: API_BASE } = resolveBackendUrls(rawEnvB
 
 // ── Detection ─────────────────────────────────────────────
 
-// This is the input contract of the Dhwani checkpoint, not the format of an
+// This is the input contract of the SatyaDhVani checkpoint, not the format of an
 // uploaded file. Browsers commonly produce WebM/Opus and uploads can be MP3,
 // WAV, M4A, etc.; forwarding those container bytes as PCM corrupts inference.
 const PCM_SAMPLE_RATE = 16000;
@@ -80,18 +80,18 @@ async function fileToPcmBase64(file) {
   }
 }
 
-// ── Direct Dhwani Model Inference ─────────────────────────
+// ── Direct SatyaDhVani Model Inference ─────────────────────────
 
 /**
- * Direct real-time streaming detection using Dhwani neural model.
+ * Direct real-time streaming detection using SatyaDhVani neural model.
  * Does NOT require tenant_id or subject_id.
- * Sends raw PCM audio chunk directly to Dhwani spoof detection endpoint.
+ * Sends raw PCM audio chunk directly to SatyaDhVani spoof detection endpoint.
  *
  * Tries API Gateway (/v1/detect) first; if unavailable, falls back to
  * direct spoof-detection-service on port 8002 (/api/8002/v1/detect)
  * or orchestrator on port 8080.
  */
-export async function detectDhwaniLiveStream({
+export async function detectSatyaDhVaniLiveStream({
   audio_pcm_base64,
   sample_rate = 16000,
   apiKey = 'pv_live_demo_000000000000000000000000',
@@ -135,8 +135,8 @@ export async function detectDhwaniLiveStream({
           confidence,
           verdict,
           speechStatus,
-          modelVersion: data.model_version || 'Dhwani v2 (ResNet-18 + BiGRU)',
-          modelArchitecture: data.model_architecture || 'ResNet-18 + SE + BiGRU + Attention',
+          modelVersion: data.model_version || 'SatyaDhVani v2 (ResNet-18 + BiGRU)',
+          modelArchitecture: data.model_architecture || 'SatyaDhVaniV2 (ResNet-SE + BiGRU + Attention)',
           detail: data.raw_logit !== undefined ? `Logit: ${data.raw_logit}` : (data.detail || ''),
           policyAction: data.final_action || data.policy_action || null,
           preTransactionDefense: data.pre_transaction_defense || null,
@@ -156,8 +156,8 @@ export async function detectDhwaniLiveStream({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        call_session_id: `dhwani-live-${Date.now()}`,
-        tenant_id: 'direct-dhwani-mic',
+        call_session_id: `satyadhvani-live-${Date.now()}`,
+        tenant_id: 'direct-satyadhvani-mic',
         audio_pcm_base64,
         audio_features: [],
       }),
@@ -184,7 +184,7 @@ export async function detectDhwaniLiveStream({
           confidence,
           verdict,
           speechStatus,
-          modelVersion: 'Dhwani v2 Neural Model',
+          modelVersion: 'SatyaDhVani v2 Neural Model',
           modelArchitecture: 'Log-Mel Spectrogram + SE-BiGRU',
           detail: data.detail || '',
           serviceOrigin: 'Direct Spoof Service (:8002)',
@@ -202,7 +202,7 @@ export async function detectDhwaniLiveStream({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        session_id: `direct-dhwani-${Date.now()}`,
+        session_id: `direct-satyadhvani-${Date.now()}`,
         tenant_id: 'default-tenant',
         subject_id: 'anonymous-mic',
         audio_pcm_base64,
@@ -227,8 +227,8 @@ export async function detectDhwaniLiveStream({
           spoofScore: score,
           confidence,
           verdict,
-          modelVersion: 'Dhwani v2 (Orchestrated)',
-          modelArchitecture: synth.detail || 'Dhwani Neural Classifier',
+          modelVersion: 'SatyaDhVani v2 (Orchestrated)',
+          modelArchitecture: synth.detail || 'SatyaDhVani Neural Classifier',
           detail: data.explanation || '',
           serviceOrigin: 'Pipeline Orchestrator (:8080)',
           raw: data,
@@ -242,9 +242,12 @@ export async function detectDhwaniLiveStream({
   return {
     success: false,
     latencyMs: Math.round(performance.now() - startTime),
-    error: 'Dhwani spoof detection backend is currently unreachable. Ensure either the API Gateway (:8090), Spoof Detection Service (:8002), or Orchestrator (:8080) is running.',
+    error: 'SatyaDhVani spoof detection backend is currently unreachable. Ensure either the API Gateway (:8090), Spoof Detection Service (:8002), or Orchestrator (:8080) is running.',
   };
 }
+
+// Backward compatibility alias
+export const detectDhwaniLiveStream = detectSatyaDhVaniLiveStream;
 
 /**
  * Detect deepfake in an audio file.
@@ -254,27 +257,78 @@ export async function detectAudio(file, apiKey) {
 
   try {
     const base64 = await fileToPcmBase64(file);
-    const resp = await fetch(`${API_BASE}/v1/detect`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': apiKey,
-      },
-      body: JSON.stringify({
-        audio_pcm_base64: base64,
-        sample_rate: PCM_SAMPLE_RATE,
-      }),
-    });
 
-    const latencyMs = Math.round(performance.now() - startTime);
+    // Tier 1: Primary API Gateway (:8090)
+    try {
+      const resp = await fetch(`${API_BASE}/v1/detect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey,
+        },
+        body: JSON.stringify({
+          audio_pcm_base64: base64,
+          sample_rate: PCM_SAMPLE_RATE,
+        }),
+        signal: AbortSignal.timeout(5000),
+      });
 
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({ detail: resp.statusText }));
-      return { success: false, statusCode: resp.status, latencyMs, error: err };
+      if (resp.ok) {
+        const data = await resp.json();
+        const latencyMs = Math.round(performance.now() - startTime);
+        return { success: true, statusCode: resp.status, latencyMs, data };
+      }
+    } catch {
+      // Fallback to Tier 2
     }
 
-    const data = await resp.json();
-    return { success: true, statusCode: resp.status, latencyMs, data };
+    // Tier 2: Direct Spoof Detection Service (:8002)
+    try {
+      const resp = await fetch(`${BACKEND_ORIGIN}/api/8002/v1/detect`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          call_session_id: `satyadhvani-upload-${Date.now()}`,
+          tenant_id: 'direct-file-upload',
+          audio_pcm_base64: base64,
+          audio_features: [],
+        }),
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (resp.ok) {
+        const raw = await resp.json();
+        const latencyMs = Math.round(performance.now() - startTime);
+        const score = typeof raw.score === 'number' ? raw.score : 0;
+        const confidence = typeof raw.confidence === 'number' ? raw.confidence : 0;
+        const verdict = score >= 0.50 ? 'fake' : 'real';
+
+        const data = {
+          session_id: raw.call_session_id || `pv-${Date.now()}`,
+          verdict,
+          spoof_score: Math.round(score * 10000) / 10000,
+          confidence: Math.round(confidence * 10000) / 10000,
+          raw_logit: raw.raw_logit || 0,
+          threshold: 0.5,
+          latency_ms: latencyMs,
+          model_version: 'SatyaDhVani-v2.0',
+          model_architecture: 'SatyaDhVaniV2 (ResNet-SE + BiGRU + Attention)',
+          detail: raw.detail || '',
+          final_action: score >= 0.70 ? 'BLOCK_PENDING_VERIFICATION' : score >= 0.40 ? 'RECOMMEND_CALLBACK_VERIFICATION' : 'PROCEED',
+        };
+
+        return { success: true, statusCode: 200, latencyMs, data };
+      }
+    } catch {
+      // Fallback exhausted
+    }
+
+    return {
+      success: false,
+      statusCode: 502,
+      latencyMs: Math.round(performance.now() - startTime),
+      error: 'Unable to reach detection service on port 8090 or 8002. Please ensure backend is running.',
+    };
   } catch (err) {
     return {
       success: false,
@@ -459,7 +513,7 @@ export async function checkHealth() {
 export const MICROSERVICES = [
   { id: 'risk-fusion', name: 'Risk Fusion Engine', port: 8000, healthPath: '/healthz', location: 'local', desc: 'Noisy-OR multi-signal risk fusion with deterministic scoring' },
   { id: 'feature-extract', name: 'Feature Extraction Service', port: 8001, healthPath: '/healthz', location: 'colab', desc: 'Log-Mel + Delta + Delta² extraction through the configured ngrok tunnel' },
-  { id: 'spoof-detection', name: 'Spoof Detection / Dhwani', port: 8002, healthPath: '/healthz', location: 'local', desc: 'Dhwani v2 neural deepfake classifier' },
+  { id: 'spoof-detection', name: 'Spoof Detection / SatyaDhVani', port: 8002, healthPath: '/healthz', location: 'local', desc: 'SatyaDhVani v2 neural deepfake classifier' },
   { id: 'enrollment', name: 'Enrollment Service', port: 8003, healthPath: '/healthz', location: 'colab', desc: 'Voiceprint enrollment and matching through the configured ngrok tunnel' },
   { id: 'policy-threshold', name: 'Policy Threshold Engine', port: 8004, healthPath: '/healthz', location: 'local', desc: 'Tenant policy evaluation and action recommendation' },
   { id: 'alerting', name: 'Alerting Service', port: 8005, healthPath: '/healthz', location: 'local', desc: 'Real-time event dispatch' },

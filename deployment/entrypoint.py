@@ -9,7 +9,7 @@
   3. Exposes:
      - /v1/*         -> API Gateway (:8090)
      - /api/8090/*   -> API Gateway (:8090)
-     - /api/8002/*   -> Dhwani Neural Spoof Detector (:8002)
+     - /api/8002/*   -> SatyaDhVani Neural Spoof Detector (:8002)
      - /api/8085/*   -> Pipeline Orchestrator (:8085)
      - /api/8080/*   -> Pipeline Orchestrator (:8085)
      - /api/8000/*   -> Risk Fusion Engine (:8000)
@@ -86,7 +86,7 @@ MICROSERVICES = [
         "port": 8002,
         "module": "main:app",
         "env": {
-            "SPOOF_MODEL_REGISTRY_BACKEND": "dhwani",
+            "SPOOF_MODEL_REGISTRY_BACKEND": "satyadhvani",
             "KMP_DUPLICATE_LIB_OK": "TRUE",
         },
     },

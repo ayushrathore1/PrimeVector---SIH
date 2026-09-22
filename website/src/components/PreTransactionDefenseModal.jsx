@@ -32,7 +32,7 @@ export default function PreTransactionDefenseModal({
   const [activeStep, setActiveStep] = useState(1);
   const [challengeStatus, setChallengeStatus] = useState('pending'); // 'pending' | 'dispatched' | 'fraud_confirmed' | 'approved'
   const [actionLog, setActionLog] = useState([
-    { time: '12:04:18', msg: 'Dhwani 2 Neural Classifier flagged voice stream as AI clone (97.4% risk).' },
+    { time: '12:04:18', msg: 'SatyaDhVani 2 Neural Classifier flagged voice stream as AI clone (97.4% risk).' },
     { time: '12:04:19', msg: 'Core Banking API rule triggered: AUTOMATIC_PRE_TRANSACTION_HOLD.' }
   ]);
 

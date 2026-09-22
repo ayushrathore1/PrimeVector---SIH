@@ -31,7 +31,7 @@
 - **Visual Action (On Screen)**:
   - In the **Live Detector**, drag-and-drop a sample `.wav` file into the dropzone and click **Analyze Audio**.
   - Show the instant result card: **Satya (Genuine Human Voice)** badge with `96.8%` confidence and `38.4 ms` latency.
-  - Switch to the **Architecture Tab** (`AboutPage.jsx`) highlighting the **Dhwani 2 Neural Engine** card.
+  - Switch to the **Architecture Tab** (`AboutPage.jsx`) highlighting the **SatyaDhVani 2 Neural Engine** card.
 - **Voiceover Speech (Verbatim Script)**:
   > *"To train SatyaDhVani 2, we built a hybrid dataset:*
   >
@@ -39,7 +39,7 @@
   >
   > *Instead of standard MFCC features, we use **LFCC — Linear Frequency Cepstral Coefficients**. LFCC maps the entire frequency spectrum linearly, exposing high-frequency vocoder buzzing.*
   >
-  > *We feed these features into our **Dhwani 2 Neural Model** — a 6-million parameter network combining ResNet and Spectro-Temporal Graph Attention to classify spoofed audio with 98.6% accuracy."*
+  > *We feed these features into our **SatyaDhVani 2 Neural Model** — a 6-million parameter network combining ResNet and Spectro-Temporal Graph Attention to classify spoofed audio with 98.6% accuracy."*
 
 ---
 
@@ -110,7 +110,7 @@ SatyaDhVani 2 consists of **9 containerized microservices** communicating over g
                  ▼                                          │
 ┌────────────────────────────────┐                          │
 │ SPOOF DETECTION ENGINE (8002)  │                          │
-│ Dhwani 2 Model (ResNet-AASIST) │                          │
+│ SatyaDhVani 2 Model (ResNet-AASIST) │                     │
 └────────────────┬───────────────┘                          │
                  │ Synthesis Score                          │ Speaker Mismatch Score
                  └────────────────┬─────────────────────────┘
@@ -139,7 +139,7 @@ SatyaDhVani 2 consists of **9 containerized microservices** communicating over g
 | :--- | :--- | :--- | :--- |
 | **`ingestion-gateway`** | Go (Goroutines) | `8000` | High-throughput audio frame buffering, RTP/SIP packet parsing, ambient mic PCM stream ingestion. |
 | **`feature-extraction-service`** | Python / C++ Binding | `8001` | Converts 16kHz PCM audio to 60-dimensional Linear Frequency Cepstral Coefficients (LFCC) in <15ms. |
-| **`spoof-detection-service`** | PyTorch / ONNX Runtime | `8002` | Executes forward pass on **Dhwani 2 Neural Model** (~6M parameters). Returns raw logits and synthesis score. |
+| **`spoof-detection-service`** | PyTorch / ONNX Runtime | `8002` | Executes forward pass on **SatyaDhVani 2 Neural Model** (~6M parameters). Returns raw logits and synthesis score. |
 | **`risk-fusion-engine`** | Python (Hand-written) | `8003` | Executes regulator-audited deterministic fusion math (Noisy-OR combination of synthesis, voiceprint, and NLP signals). |
 | **`policy-threshold-engine`** | Python / FastAPI | `8004` | Applies tenant-specific risk thresholds (`HIGH_RISK_ACTION_THRESHOLD = 0.70`) and `auto_block_enabled` rules. |
 | **`enrollment-service`** | Python / ECAPA-TDNN | `8005` | Generates 192-dimensional speaker voiceprint embeddings; provides voiceprint enrollment and revocation APIs. |
@@ -162,7 +162,7 @@ $$\text{P(clean)} = \prod_{s \in \text{Available}} (1.0 - \text{score}_s)$$
 $$\text{Acoustic Risk Score} = 1.0 - \text{P(clean)}$$
 
 **Evidence Signals Included in Noisy-OR**:
-1. `synthesis`: Dhwani 2 AI Deepfake Detection Score ($0.0 - 1.0$)
+1. `synthesis`: SatyaDhVani 2 AI Deepfake Detection Score ($0.0 - 1.0$)
 2. `speaker_match`: ECAPA-TDNN Speaker Voiceprint Mismatch Score ($0.0 - 1.0$)
 3. `content_risk`: Conversational Vishing NLP Scam Keyword Score ($0.0 - 1.0$)
 
@@ -226,7 +226,7 @@ Layout: Clean 5-tier horizontal-stacked modern schematic design on a crisp white
 Components shown in sequence with clear directional arrows:
 1. LAYER 1 (INGESTION): Icons for SIP Session Border Controller (SBC) and Android Phone running mic capture. Label: "Layer 1: Edge Ingestion & SIP Telemetry".
 2. LAYER 2 (FEATURE ENGINE): Processing block showing audio waveform entering a C++ module labeled "Layer 2: Optimized C++ LFCC Feature Extraction (<15ms)".
-3. LAYER 3 (NEURAL CLASSIFIER): Neural network graph node diagram labeled "Layer 3: Dhwani 2 Engine (~6M Params ResNet-SE + AASIST Graph Attention)".
+3. LAYER 3 (NEURAL CLASSIFIER): Neural network graph node diagram labeled "Layer 3: SatyaDhVani 2 Engine (~6M Params ResNet-SE + AASIST Graph Attention)".
 4. LAYER 4 (GATEKEEPER): Security shield block labeled "Layer 4: Satya Deterministic Fusion & RAM-Only Zero Retention Gatekeeper (Never Fail Open)".
 5. LAYER 5 (ENTERPRISE): Output connecting to Core Banking Middleware (Finacle / Temenos T24) and Contact Center Agent Desktop.
 
@@ -269,7 +269,7 @@ Middle Block (Multilingual Fine-Tuning Phase):
 - Label: "Initial Phase Cross-Lingual Acoustic Alignment".
 
 Right Block (Trained Output):
-- Dhwani 2 Model neural weights node labeled "Dhwani 2 Neural Classifier (~6M Parameters)".
+- SatyaDhVani 2 Model neural weights node labeled "SatyaDhVani 2 Neural Classifier (~6M Parameters)".
 - Output tags: "Satya (Genuine) vs ASatya (Deepfake)" | "EER: 1.4% | P99 < 50ms".
 
 Style: Modern technical dataflow diagram, clean minimalist vector aesthetics, forest green and crisp white color palette.

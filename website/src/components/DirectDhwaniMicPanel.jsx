@@ -21,7 +21,7 @@ import {
   Ban
 } from 'lucide-react';
 import RealtimeAudioCapture from './RealtimeAudioCapture';
-import { detectDhwaniLiveStream } from '../utils/api';
+import { detectSatyaDhVaniLiveStream, detectDhwaniLiveStream } from '../utils/api';
 import PreTransactionDefenseModal from './PreTransactionDefenseModal';
 
 /**
@@ -54,9 +54,10 @@ function computeSessionThreatIntelligence(chunks) {
   }
 
   const vocal = chunks.filter((c) => c.speechStatus === 'VOICE');
-  const spoofed = vocal.filter((c) => c.score >= 0.50);
-  const suspicious = vocal.filter((c) => c.score >= 0.35 && c.score < 0.50);
-  const bonafide = vocal.filter((c) => c.score < 0.35);
+  // Decisive spoof chunk requires >= 0.70 to avoid single breath noise triggering false lock
+  const spoofed = vocal.filter((c) => c.score >= 0.70);
+  const suspicious = vocal.filter((c) => c.score >= 0.40 && c.score < 0.70);
+  const bonafide = vocal.filter((c) => c.score < 0.40);
 
   let peakThreatScore = 0;
   let peakChunkIndex = null;
@@ -76,6 +77,9 @@ function computeSessionThreatIntelligence(chunks) {
   let hasThreatLock = false;
   let threatExplanation = '';
 
+  // Threat latch engages if multiple chunks detect spoof, or a single decisive clone (>= 0.75)
+  const isConfirmedAttack = spoofed.length >= 2 || (spoofed.length === 1 && peakThreatScore >= 0.75);
+
   if (vocal.length === 0) {
     const allSilence = chunks.every((c) => c.speechStatus === 'SILENCE');
     sessionScore = 0.0;
@@ -83,17 +87,16 @@ function computeSessionThreatIntelligence(chunks) {
     threatExplanation = allSilence
       ? 'Microphone active but audio level is below vocal threshold (Silence / Muted).'
       : 'Acoustic energy matches non-vocal ambient noise/static.';
-  } else if (spoofed.length > 0) {
-    // THREAT LATCH: An AI voice clone attack was confirmed in this session.
-    // Even if a human speaks subsequently, this session is permanently locked in quarantine.
+  } else if (isConfirmedAttack) {
+    // THREAT LATCH: High-confidence AI voice clone attack confirmed in this session.
     hasThreatLock = true;
     sessionScore = Math.max(peakThreatScore, 0.90);
     sessionVerdict = 'SYNTHETIC_SPOOF';
     threatExplanation = `🚨 PERSISTENT SECURITY LOCK: Neural vocoder synthesis detected in Window #${peakChunkIndex} (Peak Threat: ${Math.round(peakThreatScore * 100)}%). Subsequent human speech does NOT clear this session flag.`;
-  } else if (suspicious.length > 0) {
-    sessionScore = peakThreatScore * 0.75 + meanVoiceScore * 0.25;
-    sessionVerdict = 'SUSPICIOUS_VOICE';
-    threatExplanation = `⚠️ Acoustic anomaly detected across vocal windows (Peak: ${Math.round(peakThreatScore * 100)}%). Secondary verification advised.`;
+  } else if (suspicious.length > 0 || peakThreatScore >= 0.40) {
+    sessionScore = peakThreatScore * 0.60 + meanVoiceScore * 0.40;
+    sessionVerdict = sessionScore >= 0.50 ? 'SYNTHETIC_SPOOF' : 'SUSPICIOUS_VOICE';
+    threatExplanation = `⚠️ Acoustic anomaly detected across vocal windows (Peak: ${Math.round(peakThreatScore * 100)}%, Mean: ${Math.round(meanVoiceScore * 100)}%). Secondary verification advised.`;
   } else {
     sessionScore = meanVoiceScore;
     sessionVerdict = 'BONAFIDE_HUMAN';
@@ -197,7 +200,7 @@ export default function DirectDhwaniMicPanel({ apiKey }) {
     try {
       const clientSpeechStatus = audioWindow.speech_status || 'VOICE';
 
-      const resp = await detectDhwaniLiveStream({
+      const resp = await detectSatyaDhVaniLiveStream({
         audio_pcm_base64: audioWindow.audio_pcm_base64,
         sample_rate: audioWindow.sample_rate_hz || 16000,
         apiKey,
@@ -226,7 +229,7 @@ export default function DirectDhwaniMicPanel({ apiKey }) {
         spoofScore = 0.0;
         confidence = 0.90;
       } else {
-        // Natural human vs synthetic voice calibration from Dhwani v2 checkpoint
+        // Natural human vs synthetic voice calibration from SatyaDhVani v2 checkpoint
         if (spoofScore >= 0.50) {
           verdict = 'SYNTHETIC_SPOOF';
         } else if (spoofScore >= 0.35) {
@@ -246,8 +249,8 @@ export default function DirectDhwaniMicPanel({ apiKey }) {
 
       const effectivePolicyAction = policyAction || (
         effectiveSpeechStatus !== 'VOICE' ? 'PROCEED' :
-        spoofScore >= 0.85 ? 'RECOMMEND_SUPERVISOR_ESCALATION' :
-        spoofScore >= 0.40 ? 'RECOMMEND_CALLBACK_VERIFICATION' :
+        spoofScore >= 0.50 ? 'BLOCK_PENDING_VERIFICATION' :
+        spoofScore >= 0.35 ? 'RECOMMEND_CALLBACK_VERIFICATION' :
         'PROCEED'
       );
 
@@ -258,7 +261,7 @@ export default function DirectDhwaniMicPanel({ apiKey }) {
       );
 
       const event = {
-        id: `dhwani-${Date.now()}-${count}`,
+        id: `satyadhvani-${Date.now()}-${count}`,
         index: count,
         timestamp: new Date().toLocaleTimeString(),
         score: spoofScore,
@@ -623,12 +626,12 @@ export default function DirectDhwaniMicPanel({ apiKey }) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 font-mono text-xs">
-            {/* Vector 1: Dhwani 2 Deepfake */}
+            {/* Vector 1: SatyaDhVani 2 Deepfake */}
             <div className="p-3.5 bg-[#FAFBF8] rounded-xl border border-[#E5EAE0] space-y-2">
               <div className="flex items-center justify-between text-[#0B150A] font-bold">
                 <div className="flex items-center gap-2">
                   <Activity size={15} className="text-[#0B150A]" />
-                  <span>Dhwani 2 DeepFake</span>
+                  <span>SatyaDhVani 2 DeepFake</span>
                 </div>
                 <span className={isSpoof ? 'text-rose-600' : 'text-[#0B150A]'}>
                   {sessionScore === null ? '—' : `${Math.round(sessionScore * 100)}%`}
@@ -800,4 +803,7 @@ export default function DirectDhwaniMicPanel({ apiKey }) {
     </div>
   );
 }
+
+export { DirectDhwaniMicPanel as DirectSatyaDhVaniMicPanel };
+
 

@@ -11,7 +11,7 @@ Run the Satya PrimeVector platform on your **8 GB RAM PC** by running the **Deep
 ```
 Your Local PC (~350 MB RAM)                   Google Colab (Free 12 GB RAM)
 ┌──────────────────────────────────────┐      ┌──────────────────────────┐
-│ spoof-detection (Dhwani 2)     :8002 │      │ feature-extraction :8001 │
+│ spoof-detection (SatyaDhVani 2) :8002│      │ feature-extraction :8001 │
 │ api-gateway                    :8090 │  ← ngrok → │ enrollment         :8003 │
 │ risk-fusion-engine             :8000 │   tunnel   │ reverse-proxy      :9090 │
 │ policy-threshold-engine        :8004 │              └──────────────────────────┘
@@ -80,7 +80,7 @@ If `COLAB_TUNNEL_URL` is not found in `.env`, the script will prompt you interac
 
 | Service | Location | RAM Used | Purpose |
 |:---|:---|:---|:---|
-| **spoof-detection-service** | 💻 Local | ~80 MB | Local Dhwani 2 Deepfake Classifier (Sub-50ms CPU) |
+| **spoof-detection-service** | 💻 Local | ~80 MB | Local SatyaDhVani 2 Deepfake Classifier (Sub-50ms CPU) |
 | **api-gateway** | 💻 Local | ~45 MB | Public REST API, API Keys & Metering |
 | **risk-fusion-engine** | 💻 Local | ~40 MB | Deterministic Compliance & Risk Math |
 | **policy-threshold-engine**| 💻 Local | ~40 MB | Configurable Thresholds & Auto-Block Gate |
@@ -97,7 +97,7 @@ If `COLAB_TUNNEL_URL` is not found in `.env`, the script will prompt you interac
 ## FAQ & Loose Ends Covered
 
 ### Why run the Deepfake Model locally?
-Dhwani 2 is a compact ~6M parameter model optimized for CPU inference (<50ms execution). Running it locally eliminates ngrok tunnel roundtrips for deepfake detection while keeping heavy feature extraction and speaker enrollment on Colab's 12 GB GPU runtime.
+SatyaDhVani 2 is a compact ~6M parameter model optimized for CPU inference (<50ms execution). Running it locally eliminates ngrok tunnel roundtrips for deepfake detection while keeping heavy feature extraction and speaker enrollment on Colab's 12 GB GPU runtime.
 
 ### What about ngrok browser warning pages?
 `run_local_lightweight.py` and the `orchestrator` automatically inject the `ngrok-skip-browser-warning: true` header into all HTTP requests, preventing HTML interstitial errors.

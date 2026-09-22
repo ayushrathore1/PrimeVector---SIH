@@ -231,7 +231,7 @@ class TestDhwaniRegistry:
         # Should have at least the heuristic model
         entry = registry.get_model("spoof-detector/generic")
         assert entry is not None
-        assert "heuristic" in entry.version.lower() or "dhwani" in entry.version.lower()
+        assert "heuristic" in entry.version.lower() or "dhwani" in entry.version.lower() or "satyadhvani" in entry.version.lower()
 
     def test_registry_lists_models(self):
         """list_models should return registered model keys."""
@@ -323,11 +323,18 @@ class TestExistingFunctionality:
         assert settings.model_registry_backend == "heuristic"
 
     def test_dhwani_backend_recognized(self):
-        """The new dhwani backend must be a valid option."""
+        """The dhwani backend must be recognized."""
         from config import Settings
 
         settings = Settings(model_registry_backend="dhwani")
         assert settings.model_registry_backend == "dhwani"
+
+    def test_satyadhvani_backend_recognized(self):
+        """The satyadhvani backend must be recognized."""
+        from config import Settings
+
+        settings = Settings(model_registry_backend="satyadhvani")
+        assert settings.model_registry_backend == "satyadhvani"
 
     def test_stub_backend_still_works(self):
         """The stub backend must still be recognized."""

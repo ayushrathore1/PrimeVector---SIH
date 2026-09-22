@@ -130,11 +130,11 @@ LOCAL_SERVICES = [
         "env": {},
     },
     {
-        "name": "spoof-detection-service (Local Dhwani 2 Model)",
+        "name": "spoof-detection-service (Local SatyaDhVani 2 Model)",
         "app_dir": os.path.join(BASE_DIR, "services", "spoof-detection-service", "app"),
         "port": 8002,
         "module": "main:app",
-        "env": {"SPOOF_MODEL_REGISTRY_BACKEND": "dhwani"},
+        "env": {"SPOOF_MODEL_REGISTRY_BACKEND": "satyadhvani"},
     },
     {
         "name": "policy-threshold-engine",
@@ -297,7 +297,7 @@ def verify_all_health(colab_url, orchestrator_port=8085):
     """Print complete health matrix across Local & Colab services."""
     services = [
         ("Risk Fusion Engine", 8000, "local", "healthz"),
-        ("Spoof Detection (Local Dhwani 2 Model)", 8002, "local", "healthz"),
+        ("Spoof Detection (Local SatyaDhVani 2 Model)", 8002, "local", "healthz"),
         ("Policy Threshold Engine", 8004, "local", "healthz"),
         ("Alerting Service", 8005, "local", "healthz"),
         ("API Gateway", 8090, "local", "v1/health"),

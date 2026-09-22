@@ -1,5 +1,5 @@
 """
-Dhwani inference engine — chunk-level real-time inference.
+SatyaDhVani inference engine — chunk-level real-time inference.
 
 Handles the full pipeline from raw PCM audio to synthetic probability,
 matching the existing spoof-detection-service's dual-path detection:
@@ -8,7 +8,7 @@ matching the existing spoof-detection-service's dual-path detection:
     → decode to float32
     → segment into chunks (3s window, 1s hop)
     → compute 80-band Log-Mel per chunk
-    → Dhwani model forward pass per chunk
+    → SatyaDhVani model forward pass per chunk
     → rolling prediction smoothing (EMA)
     → final synthetic_probability
 
@@ -196,9 +196,30 @@ def _normalize_features(feat: np.ndarray) -> np.ndarray:
 
 
 def _is_v2_model(model) -> bool:
-    """Detect if the model is a DhwaniV2 (3-channel) or DhwaniBaseline (1-channel)."""
-    from model.dhwani_baseline import DhwaniV2
-    return isinstance(model, DhwaniV2)
+    """Detect if the model is a SatyaDhVaniV2 (3-channel) or SatyaDhVaniBaseline (1-channel)."""
+    if model is None:
+        return False
+    # 1. Check stem convolution input channels (most reliable hardware inspection)
+    first_conv = getattr(model, "stem", None)
+    if first_conv is not None:
+        try:
+            if getattr(first_conv[0], "in_channels", 1) == 3:
+                return True
+        except Exception:
+            pass
+    # 2. Check explicit n_channels attribute
+    if getattr(model, "n_channels", 1) == 3:
+        return True
+    # 3. Check class name
+    cls_name = getattr(model, "__class__", type(model)).__name__
+    if "V2" in cls_name or "SatyaDhVaniV2" in cls_name or "DhwaniV2" in cls_name:
+        return True
+    # 4. Fallback isinstance check
+    try:
+        from model.satyadhvani_baseline import SatyaDhVaniV2, DhwaniV2
+        return isinstance(model, (SatyaDhVaniV2, DhwaniV2))
+    except Exception:
+        return False
 
 
 def _resample_audio(audio: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarray:

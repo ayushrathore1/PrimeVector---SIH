@@ -1,6 +1,6 @@
-# Dhwani v2 — Developer Implementation Guide
+# SatyaDhVani v2 — Developer Implementation Guide
 
-> **Branch**: `dhwani-v2-upgrade`  
+> **Branch**: `satyadhvani-v2-upgrade`  
 > **Status**: Ready for training → integration  
 > **Breaking Changes**: None — fully backward compatible with v1
 
@@ -8,7 +8,7 @@
 
 ## What Changed & Why
 
-Dhwani v1 (4-block CNN, ~1.2M params, 1-channel Log-Mel) achieved baseline accuracy but lacked the depth to reliably distinguish modern AI-generated speech from real human voice. v2 addresses this with a significantly upgraded architecture and training pipeline.
+SatyaDhVani v1 (4-block CNN, ~1.2M params, 1-channel Log-Mel) achieved baseline accuracy but lacked the depth to reliably distinguish modern AI-generated speech from real human voice. v2 addresses this with a significantly upgraded architecture and training pipeline.
 
 ### Architecture: v1 → v2
 
@@ -97,11 +97,11 @@ This creates a `spoof_generated/` folder with WAV files + `manifest.csv`.
 
 ```bash
 # Place checkpoint
-cp dhwani_baseline_v2.pt ml/dhwani/checkpoints/
+cp satyadhvani_baseline_v2.pt ml/dhwani/checkpoints/
 
 # Set environment
-export SPOOF_MODEL_REGISTRY_BACKEND=dhwani
-z
+export SPOOF_MODEL_REGISTRY_BACKEND=satyadhvani
+
 # Start service
 cd services/spoof-detection-service
 uvicorn app.main:app --host 0.0.0.0 --port 8002
@@ -118,19 +118,20 @@ The system automatically handles v1 and v2 checkpoints:
 ```
 Checkpoint loaded
     │
-    ├─ config.architecture contains "DhwaniV2"
+    ├─ config.architecture contains "SatyaDhVaniV2" / "DhwaniV2"
     │   or config.n_channels == 3?
     │
-    ├─ YES → Load DhwaniV2 (ResNet-SE + BiGRU + Attention)
+    ├─ YES → Load SatyaDhVaniV2 (ResNet-SE + BiGRU + Attention)
     │         Use 3-channel features (Log-Mel + Delta + Delta²)
     │
-    └─ NO  → Load DhwaniBaseline (4-block CNN)
+    └─ NO  → Load SatyaDhVaniBaseline (4-block CNN)
               Use 1-channel features (Log-Mel only)
 ```
 
 **Checkpoint search order:**
-1. `ml/dhwani/checkpoints/dhwani_baseline_v2.pt` (preferred)
-2. `ml/dhwani/checkpoints/dhwani_baseline_v1.pt` (fallback)
+1. `satyadhvani_baseline_v2.pt` (preferred)
+2. `dhwani_baseline_v2.pt` (legacy v2 name)
+3. `dhwani_baseline_v1.pt` (fallback)
 
 No config changes needed — drop in the checkpoint and restart.
 
@@ -154,10 +155,10 @@ No config changes needed — drop in the checkpoint and restart.
 
 ```python
 import torch
-from model.dhwani_baseline import DhwaniV2
+from model.satyadhvani_baseline import SatyaDhVaniV2
 
 # Smoke test — 3-channel input
-model = DhwaniV2(n_channels=3, n_mels=80)
+model = SatyaDhVaniV2(n_channels=3, n_mels=80)
 x = torch.randn(4, 3, 80, 300)  # batch=4, 3ch, 80 mels, 300 frames
 logit = model(x)
 print(logit.shape)  # torch.Size([4, 1])
@@ -167,10 +168,10 @@ print(f"Params: {sum(p.numel() for p in model.parameters()):,}")
 ### File Dependencies
 
 ```
-dhwani_registry.py
-    ├── model/dhwani_baseline.py  (DhwaniBaseline, DhwaniV2, load_dhwani_baseline)
-    └── model/inference.py        (predict_chunks, 3-ch feature extraction)
-            └── librosa            (Log-Mel + Delta computation)
+satyadhvani_registry.py (or dhwani_registry.py)
+    ├── model/satyadhvani_baseline.py  (SatyaDhVaniBaseline, SatyaDhVaniV2, load_satyadhvani_baseline)
+    └── model/inference.py             (predict_chunks, 3-ch feature extraction)
+            └── librosa                (Log-Mel + Delta computation)
 ```
 
 ---

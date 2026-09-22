@@ -80,7 +80,7 @@ graph TD
 |---|---|---|---|
 | **`ingestion-gateway`** | Go 1.22 / gRPC | 🟢 **Healthy** | Edge streaming ingress, token-bucket rate limiting, backpressure. |
 | **`feature-extraction-service`** | Python / FastAPI / Librosa | 🟢 **Healthy** | Log-Mel spectrograms, prosody pitch contours, 192-dim embeddings. |
-| **`spoof-detection-service`** | Python / FastAPI / PyTorch | 🟢 **Healthy** | Deepfake voice cloning detection with regional accent routing. |
+| **`spoof-detection-service`** | Python / FastAPI / PyTorch | 🟢 **Healthy** | SatyaDhVani 2 deepfake voice cloning detection with regional accent routing. |
 | **`enrollment-service`** | Python / FastAPI / SciPy | 🟢 **Healthy** | Multi-session voiceprint registration & liveness verification. |
 | **`risk-fusion-engine`** | Python / FastAPI / Pydantic | 🟢 **Healthy** | Deterministic Noisy-OR probability math & bounded context multiplier. |
 | **`policy-threshold-engine`** | Python / FastAPI | 🟢 **Healthy** | Tenant threshold rules & opt-in auto-block liability gate. |

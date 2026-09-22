@@ -24,11 +24,11 @@ class Settings(BaseSettings):
 
     # Which ModelRegistry backend to use.
     #   - "deepfake": Trained ResNet18+GRU+Attention model (production)
-    #   - "dhwani": Dhwani voice deepfake detector (CNN/multi-branch,
+    #   - "satyadhvani" (or "dhwani"): SatyaDhVani voice deepfake detector (ResNet-SE+BiGRU+Attention,
     #     trained on Colab with Vaani + spoof datasets)
     #   - "heuristic": Log-mel heuristic scorer v4.0 (fallback only)
     #   - "stub": No model registered (available=false for all requests)
-    model_registry_backend: str = "dhwani"
+    model_registry_backend: str = "satyadhvani"
 
     # Logging level for structured logs.
     log_level: str = "INFO"
